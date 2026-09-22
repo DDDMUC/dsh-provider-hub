@@ -118,3 +118,16 @@ test('coverage: empty native list keeps everything visible', () => {
   assert.equal(covered.length, 0)
   assert.equal(visible.length, PRESETS.length)
 })
+
+test('coverage: StepFun Step Plan is not covered by the built-in stepfun entry', () => {
+  const { visible, covered } = coverageOf(PRESETS, ['stepfun'])
+  assert.ok(visible.includes('stepfun-step-plan'), 'step plan route must stay visible')
+  assert.ok(visible.includes('stepfun-step-plan-global'), 'global step plan route must stay visible')
+  assert.equal(covered.length, 0)
+  const preset = findPreset('stepfun-step-plan')
+  assert.equal(preset.baseURL, 'https://api.stepfun.com/step_plan/v1')
+  assert.equal(preset.env, 'STEPFUN_API_KEY')
+  const profile = buildProfile({ presetId: 'stepfun-step-plan' })
+  assert.equal(profile.apiKeyEnv, 'STEPFUN_API_KEY')
+  assert.ok(profile.models.some((model) => model.id === 'step-5-preview'))
+})

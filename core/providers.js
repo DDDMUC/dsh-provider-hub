@@ -325,6 +325,39 @@ export const PRESETS = [
       { id: 'doubao-seed-1-6-thinking-250715', name: '豆包 Seed 1.6 Thinking', contextWindow: 262144, maxTokens: 32768, input: textImage },
     ],
   },
+  {
+    // DSH's built-in catalog ships `stepfun` pointed at the pay-as-you-go
+    // endpoint (api.stepfun.com/v1); Step Plan subscribers need the step_plan
+    // route instead, which no native entry provides.
+    id: 'stepfun-step-plan',
+    name: 'StepFun Step Plan（国内）',
+    docs: 'https://platform.stepfun.com/docs/zh/step-plan/quick-start',
+    keyUrl: 'https://platform.stepfun.com/account-overview',
+    env: 'STEPFUN_API_KEY',
+    baseURL: 'https://api.stepfun.com/step_plan/v1',
+    api: 'openai-completions',
+    models: [
+      { id: 'step-5-preview', name: 'Step 5 Preview', contextWindow: 1024000, maxTokens: 65536, input: textImage, reasoningEfforts: LOW_MEDIUM_HIGH },
+      { id: 'step-3.7-flash', name: 'Step 3.7 Flash', contextWindow: 256000, maxTokens: 256000, input: textImage, reasoningEfforts: LOW_MEDIUM_HIGH },
+      { id: 'step-3.5-flash', name: 'Step 3.5 Flash', contextWindow: 256000, maxTokens: 256000, input: text, reasoningEfforts: LOW_MEDIUM_HIGH },
+      { id: 'step-3.5-flash-2603', name: 'Step 3.5 Flash 2603', contextWindow: 256000, maxTokens: 256000, input: text, reasoningEfforts: LOW_MEDIUM_HIGH },
+    ],
+  },
+  {
+    id: 'stepfun-step-plan-global',
+    name: 'StepFun Step Plan（国际）',
+    docs: 'https://platform.stepfun.ai/docs/en/step-plan/quick-start',
+    keyUrl: 'https://platform.stepfun.ai/account-overview',
+    env: 'STEPFUN_GLOBAL_API_KEY',
+    baseURL: 'https://api.stepfun.ai/step_plan/v1',
+    api: 'openai-completions',
+    models: [
+      { id: 'step-5-preview', name: 'Step 5 Preview', contextWindow: 1024000, maxTokens: 65536, input: textImage, reasoningEfforts: LOW_MEDIUM_HIGH },
+      { id: 'step-3.7-flash', name: 'Step 3.7 Flash', contextWindow: 256000, maxTokens: 256000, input: textImage, reasoningEfforts: LOW_MEDIUM_HIGH },
+      { id: 'step-3.5-flash', name: 'Step 3.5 Flash', contextWindow: 256000, maxTokens: 256000, input: text, reasoningEfforts: LOW_MEDIUM_HIGH },
+      { id: 'step-3.5-flash-2603', name: 'Step 3.5 Flash 2603', contextWindow: 256000, maxTokens: 256000, input: text, reasoningEfforts: LOW_MEDIUM_HIGH },
+    ],
+  },
 ]
 
 /** Look one preset up by id. */

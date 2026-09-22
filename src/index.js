@@ -148,6 +148,24 @@ async function stateOf(ctx) {
   const coverage = coverageOf(PRESETS, nativeIds)
   const coveredBy = new Map(coverage.covered.map((entry) => [entry.id, entry.as]))
 
+  // One credential probe per referenced env; presets whose ref is already
+  // configured elsewhere (process env, credentials service, another route)
+  // can be enabled without pasting the key again.
+  const credentialConfigured = new Map()
+  if (credentials) {
+    const refs = new Set(PRESETS.map((preset) => preset.env))
+    for (const profile of Object.values(providers)) {
+      if (typeof profile?.apiKeyEnv === 'string') refs.add(profile.apiKeyEnv)
+    }
+    for (const ref of refs) {
+      try {
+        credentialConfigured.set(ref, (await credentials.describe(ref))?.configured === true)
+      } catch {
+        credentialConfigured.set(ref, false)
+      }
+    }
+  }
+
   const routes = {}
   for (const [route, profile] of Object.entries(providers)) {
     const env = profile && typeof profile.apiKeyEnv === 'string' ? profile.apiKeyEnv : undefined
@@ -187,6 +205,7 @@ async function stateOf(ctx) {
       models: preset.models.map((model) => model.id),
       configured: Object.hasOwn(providers, preset.id),
       keyConfigured: routes[preset.id]?.keyConfigured === true,
+      envConfigured: credentialConfigured.get(preset.env) === true,
       live: live.has(preset.id),
       covered: coveredBy.has(preset.id),
       coveredBy: coveredBy.get(preset.id),
@@ -200,7 +219,6 @@ async function enable(ctx, body) {
   const { settings, credentials } = services(ctx)
   if (!settings || !credentials) throw new HttpError(503, 'service-missing', 'DSH 设置或凭据服务不可用')
   const key = typeof body.key === 'string' ? body.key.trim() : ''
-  if (key === '') throw new HttpError(400, 'key-required', '请填写 API Key')
   let route
   let profile
   try {
@@ -212,7 +230,25 @@ async function enable(ctx, body) {
   const descriptor = piAiDescriptor(settings)
   if (!descriptor) throw new HttpError(503, 'namespace-missing', 'llm-pi-ai 设置命名空间未注册')
 
-  await credentials.set(profile.apiKeyEnv, key)
+  if (key === '') {
+    // An empty key is allowed when the referenced credential already resolves
+    // (process env, credentials service, another route): the profile then just
+    // references the existing ref.
+    const existing = await credentials.describe(profile.apiKeyEnv).catch(() => undefined)
+    if (existing?.configured !== true) {
+      throw new HttpError(400, 'key-required', `请填写 API Key（${profile.apiKeyEnv} 尚未配置）`)
+    }
+  } else {
+    try {
+      await credentials.set(profile.apiKeyEnv, key)
+    } catch (error) {
+      throw new HttpError(
+        409,
+        'credential-not-writable',
+        `无法写入凭据 ${profile.apiKeyEnv}：${String((error && error.message) || error)}。若该 Key 来自环境变量，请留空输入框、直接用已有 Key 启用。`,
+      )
+    }
+  }
   try {
     await settings.mutate(PI_AI_NS, [{ op: 'set', path: ['providers', route], value: profile }], descriptor.revision)
   } catch (error) {

@@ -4,7 +4,7 @@
 
 为 DSH 扩大可用的服务商：**选一个服务商，粘贴 API Key，点启用**——插件把官方 `llm-pi-ai` 路由与凭据一次性写好，立即生效、无需重启、无需手改 `settings.yaml`。
 
-内置 20 家预设（OpenAI 兼容协议 + Anthropic Messages 协议），另有「自定义服务商」入口可接入任意 OpenAI 兼容端点。
+内置 23 家预设（OpenAI 兼容协议 + Anthropic Messages 协议），另有「自定义服务商」入口可接入任意 OpenAI 兼容端点；DSH 已内置的服务商默认折叠、不重复展示。
 
 ## 安装
 
@@ -42,7 +42,9 @@ dsh plugin --profile web add link:/path/to/dsh-provider-hub
 
 ## 预设清单
 
-OpenAI、OpenRouter、Anthropic、Google Gemini（OpenAI 兼容）、xAI Grok、Mistral、Groq、Together、Fireworks、DeepInfra、Novita、硅基流动、月之暗面 Kimi（国内/国际）、智谱 GLM（国内）、Z.ai GLM（国际）、MiniMax、阿里云百炼 Qwen、百度千帆、腾讯混元、火山方舟（豆包）。内置 DeepSeek 官方与 StepFun 已有官方适配器，本插件不重复提供。
+OpenAI、OpenRouter、Anthropic、Google Gemini（OpenAI 兼容）、xAI Grok、Mistral、Groq、Together、Fireworks、DeepInfra、Novita、硅基流动、月之暗面 Kimi（国内/国际）、智谱 GLM（国内）、Z.ai GLM（国际）、MiniMax、阿里云百炼 Qwen、百度千帆、腾讯混元、火山方舟（豆包）、**StepFun Step Plan（国内/国际）**。
+
+关于内置：DSH 自带 DeepSeek 官方适配器（`llm-deepseek`），其目录里的 `stepfun` 指向普通付费端点 `api.stepfun.com/v1`——**Step Plan 订阅端点（`step_plan/v1`）没有内置条目，因此本插件提供该预设**；其余与本插件重合的服务商（openai、openrouter 等 13 个）由 DSH 原生目录覆盖，默认折叠在「显示 DSH 已内置」开关后。已配置过的 Key（包括来自环境变量的）会被识别，留空输入框即可直接启用。
 
 ## 注意
 
@@ -56,7 +58,7 @@ OpenAI、OpenRouter、Anthropic、Google Gemini（OpenAI 兼容）、xAI Grok、
 
 Expand the providers DSH can use: **pick a provider, paste the API key, press Enable**. The plugin writes the official `llm-pi-ai` route and its credential in one step - effective immediately, no restart, no hand-editing `settings.yaml`.
 
-20 built-in presets (OpenAI-compatible and Anthropic Messages protocols) plus a custom-endpoint form for any OpenAI-compatible gateway.
+23 built-in presets (OpenAI-compatible and Anthropic Messages protocols) plus a custom-endpoint form for any OpenAI-compatible gateway. Presets your target app already ships natively are collapsed by default, never deleted.
 
 ### Install
 

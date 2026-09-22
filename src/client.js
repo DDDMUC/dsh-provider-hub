@@ -51,7 +51,8 @@ window.__ModuleLoader__.load({
       'status.stored': '已写入',
       'status.noKey': '缺 Key',
       'key.placeholder': '粘贴 {env}',
-      'key.savedHint': '凭据服务里已有 Key；留空则保留现有 Key。',
+      'key.savedHint': '凭据里已有 Key',
+      'key.placeholderKeep': '留空则用已有 Key',
       'action.enable': '启用',
       'action.remove': '移除',
       'remove.confirm': '移除 {route}？已保存的 Key 会保留在凭据服务里。',
@@ -84,7 +85,8 @@ window.__ModuleLoader__.load({
       'status.stored': 'written',
       'status.noKey': 'no key',
       'key.placeholder': 'Paste {env}',
-      'key.savedHint': 'A key already exists; leave empty to keep it.',
+      'key.savedHint': 'key already stored',
+      'key.placeholderKeep': 'Leave empty for the stored key',
       'action.enable': 'Enable',
       'action.remove': 'Remove',
       'remove.confirm': 'Remove {route}? The stored key stays in the credentials service.',
@@ -185,7 +187,7 @@ window.__ModuleLoader__.load({
 
       const enablePreset = async (preset) => {
         const key = String(keys[preset.id] || '').trim()
-        if (key === '') {
+        if (key === '' && preset.envConfigured !== true) {
           setError(tr('error.keyRequired'))
           return
         }
@@ -284,7 +286,7 @@ window.__ModuleLoader__.load({
               ' ',
               h('a', { style: S.link, href: preset.keyUrl, target: '_blank', rel: 'noreferrer' }, `[${tr('getKey')}]`),
             ),
-            h('span', { style: S.sub }, `${preset.env} · ${tr('models.count', { n: preset.models.length })} · ${preset.models.join(', ')}`),
+            h('span', { style: S.sub }, `${preset.env} · ${tr('models.count', { n: preset.models.length })} · ${preset.models.join(', ')}${preset.envConfigured === true ? ' · ' + tr('key.savedHint') : ''}`),
           ),
           preset.configured ? statusBadge(preset.id) : null,
           preset.configured
@@ -293,7 +295,7 @@ window.__ModuleLoader__.load({
                 style: S.input,
                 type: 'password',
                 autoComplete: 'off',
-                placeholder: tr('key.placeholder', { env: preset.env }),
+                placeholder: preset.envConfigured === true ? tr('key.placeholderKeep') : tr('key.placeholder', { env: preset.env }),
                 value: keys[preset.id] || '',
                 onChange: (event) => setKeys((current) => ({ ...current, [preset.id]: event.target.value })),
               }),
