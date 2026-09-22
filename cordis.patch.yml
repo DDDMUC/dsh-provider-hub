@@ -1,0 +1,13 @@
+# dsh-provider-hub bundle patch: inserts the plugin row into the profile roster.
+#
+# The node half serves the loopback-only /dsh-provider-hub/* routes; the
+# browser half (exports "./client") mounts the presets card on the official
+# Models settings page footer.
+#
+# The entry name is the BARE package name on purpose: the client-module scanner
+# treats it as a package specifier and resolves `<name>/package.json`, so a
+# subpath entry would be cached as "not a client package" and the browser half
+# would silently never load.
+- insert:
+    - id: dsh-provider-hub
+      name: 'dsh-provider-hub'

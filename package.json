@@ -1,0 +1,57 @@
+{
+  "name": "dsh-provider-hub",
+  "version": "0.1.0",
+  "description": "只填 Key 的服务商预设：为 DSH 一键写入官方 llm-pi-ai 路由与凭据，内置 20 家 OpenAI 兼容 / Anthropic Messages 预设与自定义端点。核心为纯 JS，可被桌面端等其它外壳复用。",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./client": "./src/client.js",
+    "./core": "./core/providers.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "core",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test \"test/*.test.js\""
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "provider",
+    "presets",
+    "openai-compatible",
+    "anthropic",
+    "api-key"
+  ],
+  "license": "MIT",
+  "author": "DDDMUC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DDDMUC/dsh-provider-hub.git"
+  },
+  "homepage": "https://github.com/DDDMUC/dsh-provider-hub#readme",
+  "bugs": {
+    "url": "https://github.com/DDDMUC/dsh-provider-hub/issues"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-renderer"
+      ]
+    },
+    "engines": {
+      "dsh": ">=0.1.6-alpha.2"
+    }
+  }
+}
