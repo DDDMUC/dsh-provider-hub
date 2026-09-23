@@ -1,6 +1,6 @@
 {
   "name": "dsh-provider-hub",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "只填 Key 的服务商预设：为 DSH 一键写入官方 llm-pi-ai 路由与凭据（插件），并可写入腾讯 WorkBuddy 的本地 models.json（CLI）；核心为纯 JS，可被更多应用的外壳复用。",
   "type": "module",
   "main": "src/index.js",
