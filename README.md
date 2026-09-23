@@ -4,7 +4,7 @@
 
 为 DSH 扩大可用的服务商：**选一个服务商，粘贴 API Key，点启用**——插件把官方 `llm-pi-ai` 路由与凭据一次性写好，立即生效、无需重启、无需手改 `settings.yaml`。
 
-内置 23 家预设（OpenAI 兼容协议 + Anthropic Messages 协议），另有「自定义服务商」入口可接入任意 OpenAI 兼容端点；DSH 已内置的服务商默认折叠、不重复展示。
+内置 **39 家服务商预设**（OpenAI 兼容 / Anthropic Messages / OpenAI Responses 三种协议），覆盖国际与国内的普通 API 与 **订阅渠道**（百炼 Token Plan、智谱 Coding、Kimi Coding、MiniMax Coding Plan、小米 MiMo、OpenCode Zen 等），另有「自定义服务商」入口可接入任意兼容端点；DSH 已内置的服务商默认折叠、不重复展示。
 
 ## 安装
 
@@ -42,9 +42,34 @@ dsh plugin --profile web add link:/path/to/dsh-provider-hub
 
 ## 预设清单
 
-OpenAI、OpenRouter、Anthropic、Google Gemini（OpenAI 兼容）、xAI Grok、Mistral、Groq、Together、Fireworks、DeepInfra、Novita、硅基流动、月之暗面 Kimi（国内/国际）、智谱 GLM（国内）、Z.ai GLM（国际）、MiniMax、阿里云百炼 Qwen、百度千帆、腾讯混元、火山方舟（豆包）、**StepFun Step Plan（国内/国际）**。
+OpenAI、OpenRouter、Anthropic、Google Gemini、xAI Grok、Mistral、Groq、Together、Fireworks、DeepInfra、Novita、Cerebras、NVIDIA NIM、Baseten、HuggingFace Router、**Vercel AI Gateway**、**OpenCode Zen / Zen Go**、硅基流动、月之暗面 Kimi（国内/国际）、**Kimi Coding Plan**、智谱 GLM（国内）、**智谱 Coding Plan**、Z.ai GLM、**MiniMax Coding Plan（国际/国内）**、MiniMax（国内）、**阿里云百炼 Token Plan（国内/国际）**、阿里云百炼 Qwen、百度千帆、腾讯混元、火山方舟（豆包）、**小米 MiMo**、**Ant Ling**、**LongCat（美团）**、**StepFun Step Plan（国内/国际）**。
 
-关于内置：DSH 自带 DeepSeek 官方适配器（`llm-deepseek`），其目录里的 `stepfun` 指向普通付费端点 `api.stepfun.com/v1`——**Step Plan 订阅端点（`step_plan/v1`）没有内置条目，因此本插件提供该预设**；其余与本插件重合的服务商（openai、openrouter 等 13 个）由 DSH 原生目录覆盖，默认折叠在「显示 DSH 已内置」开关后。已配置过的 Key（包括来自环境变量的）会被识别，留空输入框即可直接启用。
+关于内置：DSH 自带 DeepSeek 官方适配器（`llm-deepseek`），其目录里的 `stepfun` 指向普通付费端点 `api.stepfun.com/v1`——**Step Plan 订阅端点（`step_plan/v1`）没有内置条目，因此本插件提供该预设**；其余与本插件重合的服务商由 DSH 原生目录覆盖的那些默认折叠在「显示 DSH 已内置」开关后。已配置过的 Key（包括来自环境变量的）会被识别，留空输入框即可直接启用。
+
+## WorkBuddy（腾讯）适配
+
+同一份预设目录也能写入 WorkBuddy 的本地自定义模型文件（`~/.workbuddy/models.json`，明文 JSON，应用启动时读取）：
+
+```sh
+node tools/workbuddy.mjs list                    # 查看预设与 WorkBuddy 里的已装状态
+node tools/workbuddy.mjs add-all                 # 目录内全部预设：无 Key 的先装上，用时在 WorkBuddy 里补
+node tools/workbuddy.mjs add stepfun-step-plan --key-from-dsh STEPFUN_API_KEY
+node tools/workbuddy.mjs add openrouter --key <key> --models deepseek/deepseek-chat
+node tools/workbuddy.mjs remove stepfun-step-plan
+node tools/workbuddy.mjs add-custom --model gpt-5.1 --url https://api.openai.com/v1 --key sk-...
+```
+
+- 条目按 WorkBuddy 的校验规则（`isValidLocalCustomModel`）生成，写入前本地校验、临时文件+rename 原子替换
+- **写入后需重启 WorkBuddy**（CLI 会在应用运行中时提示）
+- 应用会把本地模型标记为 `custom-local:` 前缀 + `custom` tag，实际请求前还原原始模型 ID
+- `useCustomProtocol: false`（默认）＝应用自动在 URL 后追加 `/chat/completions`；需要完整 URL 时加 `--full-url`
+- Key 来源三选一：`--key`、`--key-env NAME`、`--key-from-dsh REF`（复用 DSH 凭据服务里的 Key）
+- WorkBuddy 的模型按 ID 全局唯一：国内/国际预设共用模型 ID 时，**目录里靠前的一家生效**；带 Key 的 `add` 是显式安装、必定覆盖；`add-all` 不会覆盖已配置 Key 的条目。想换另一家先 `remove <另一家>` 再 `add <目标家> --key ...`
+
+## 目录维护
+
+- 模型清单与逐模型兼容开关可从任意权威目录刷新：`node tools/refresh-catalog.mjs --catalog <catalog.json>`（先 `--dry` 审阅）；路由级只保留全部模型一致的开关，不一致的由模型自己携带 `compat`
+- WorkBuddy 端用 `node tools/workbuddy.mjs add-all --prune` 同步：装入全部预设并清掉目录里已不存在的旧条目
 
 ## 注意
 
@@ -58,7 +83,7 @@ OpenAI、OpenRouter、Anthropic、Google Gemini（OpenAI 兼容）、xAI Grok、
 
 Expand the providers DSH can use: **pick a provider, paste the API key, press Enable**. The plugin writes the official `llm-pi-ai` route and its credential in one step - effective immediately, no restart, no hand-editing `settings.yaml`.
 
-23 built-in presets (OpenAI-compatible and Anthropic Messages protocols) plus a custom-endpoint form for any OpenAI-compatible gateway. Presets your target app already ships natively are collapsed by default, never deleted.
+39 built-in presets (OpenAI-compatible, Anthropic Messages and OpenAI Responses protocols) plus a custom-endpoint form for any compatible gateway. Presets your target app already ships natively are collapsed by default, never deleted.
 
 ### Install
 

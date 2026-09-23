@@ -7,14 +7,21 @@ import { PRESETS, SUPPORTED_APIS, customEnvName, findPreset } from '../core/prov
 import { baseUrlError, buildProfile, effortsError, isRouteKey, routeOf } from '../core/profile.js'
 import { coverageOf } from '../core/coverage.js'
 
-test('catalog: ids and env refs are unique', () => {
+test('catalog: ids are unique', () => {
   const ids = new Set()
-  const envs = new Set()
   for (const preset of PRESETS) {
     assert.equal(ids.has(preset.id), false, `duplicate preset id ${preset.id}`)
     ids.add(preset.id)
-    assert.equal(envs.has(preset.env), false, `duplicate env ${preset.env}`)
-    envs.add(preset.env)
+  }
+})
+
+test('catalog: every env ref is a well-formed variable name', () => {
+  // A vendor's channels (standard API, coding plan, token plan) intentionally
+  // share one credential ref: the same key is what the user has.
+  for (const preset of PRESETS) {
+    assert.match(preset.env, /^[A-Z][A-Z0-9_]*$/, `${preset.id} env ${preset.env}`)
+    assert.equal(typeof preset.name, 'string')
+    assert.ok(preset.name.length > 0)
   }
 })
 
@@ -47,10 +54,22 @@ test('buildProfile: preset produces the official profile shape', () => {
   assert.equal(serialized.includes('undefined'), false)
 })
 
-test('buildProfile: anthropic preset carries no OpenAI compat block', () => {
+test('buildProfile: anthropic routes carry anthropic switches, never OpenAI ones', () => {
   const profile = buildProfile({ presetId: 'anthropic' })
   assert.equal(profile.api, 'anthropic-messages')
-  assert.equal(profile.compat, undefined)
+  const openaiOnly = ['thinkingFormat', 'supportsStore', 'maxTokensField', 'requiresReasoningContentOnAssistantMessages', 'supportsDeveloperRole']
+  for (const field of openaiOnly) assert.equal(profile.compat?.[field], undefined, field)
+})
+
+test('buildProfile: per-model compat passes through alongside the route consensus', () => {
+  const profile = buildProfile({ presetId: 'moonshot' })
+  const k3 = profile.models.find((model) => model.id === 'kimi-k3')
+  assert.ok(k3, 'kimi-k3 present')
+  assert.equal(k3.compat.thinkingFormat, 'openai')
+  const older = profile.models.find((model) => model.id === 'kimi-k2.5')
+  assert.equal(older.compat.thinkingFormat, 'deepseek')
+  // route consensus still rides on the profile itself
+  assert.equal(profile.compat.supportsStore, false)
 })
 
 test('buildProfile: custom route builds models with defaults', () => {

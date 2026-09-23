@@ -1,7 +1,7 @@
 {
   "name": "dsh-provider-hub",
   "version": "0.1.1",
-  "description": "只填 Key 的服务商预设：为 DSH 一键写入官方 llm-pi-ai 路由与凭据，内置 20 家 OpenAI 兼容 / Anthropic Messages 预设与自定义端点。核心为纯 JS，可被桌面端等其它外壳复用。",
+  "description": "只填 Key 的服务商预设：为 DSH 一键写入官方 llm-pi-ai 路由与凭据（插件），并可写入腾讯 WorkBuddy 的本地 models.json（CLI）；核心为纯 JS，可被更多应用的外壳复用。",
   "type": "module",
   "main": "src/index.js",
   "exports": {
@@ -14,10 +14,12 @@
     "src",
     "core",
     "cordis.patch.yml",
-    "README.md"
+    "README.md",
+    "tools"
   ],
   "scripts": {
-    "test": "node --test \"test/*.test.js\""
+    "test": "node --test \"test/*.test.js\"",
+    "workbuddy": "node tools/workbuddy.mjs"
   },
   "keywords": [
     "deepseek-harness",
@@ -53,5 +55,8 @@
     "engines": {
       "dsh": ">=0.1.6-alpha.2"
     }
+  },
+  "bin": {
+    "provider-hub-workbuddy": "tools/workbuddy.mjs"
   }
 }

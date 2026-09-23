@@ -67,6 +67,10 @@ export function sanitizeModel(entry) {
     maxTokens: Number.isFinite(entry.maxTokens) && entry.maxTokens > 0 ? Math.floor(entry.maxTokens) : undefined,
     input: Array.isArray(entry.input) && entry.input.length > 0 ? [...entry.input] : undefined,
     reasoningEfforts: entry.reasoningEfforts,
+    // Per-model wire switches: when models on one route disagree (Kimi's k3 vs
+    // k2.x thinking formats), the model entry carries its own compat and wins
+    // over the route consensus.
+    compat: entry.compat && typeof entry.compat === 'object' && !Array.isArray(entry.compat) ? { ...entry.compat } : undefined,
   })
   return model
 }
@@ -133,12 +137,24 @@ export function buildProfile(input) {
       : route
   const env = preset ? preset.env : customEnvName(route)
 
+  // Route-level compat: the hub's safe defaults for OpenAI-compatible
+  // endpoints, overridden by the preset's own authoritative switches (learned
+  // from the served catalogs, e.g. thinkingFormat qwen/zai/deepseek/ant-ling),
+  // then by any explicit caller override. anthropic-messages routes carry their
+  // own switch set and no OpenAI defaults; openai-responses carries none here.
+  const presetCompat = preset && preset.compat && typeof preset.compat === 'object' ? preset.compat : undefined
+  const callerCompat = input && input.compat && typeof input.compat === 'object' ? input.compat : undefined
+  let compat
+  if (api === 'openai-completions') compat = { ...OPENAI_COMPAT, ...(presetCompat ?? {}), ...(callerCompat ?? {}) }
+  else if (api === 'anthropic-messages') compat = { ...(presetCompat ?? {}), ...(callerCompat ?? {}) }
+  if (compat !== undefined && Object.keys(compat).length === 0) compat = undefined
+
   return compact({
     displayName,
     api,
     baseURL,
     apiKeyEnv: env,
-    compat: api === 'openai-completions' ? { ...OPENAI_COMPAT, ...(input.compat ?? {}) } : undefined,
+    compat,
     models,
   })
 }
