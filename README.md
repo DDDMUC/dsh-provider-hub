@@ -4,7 +4,7 @@
 
 为 DSH 扩大可用的服务商：**选一个服务商，粘贴 API Key，点启用**——插件把官方 `llm-pi-ai` 路由与凭据一次性写好，立即生效、无需重启、无需手改 `settings.yaml`。
 
-内置 **40 家服务商预设**（OpenAI 兼容 / Anthropic Messages / OpenAI Responses 三种协议），覆盖国际与国内的普通 API 与 **订阅渠道**（百炼 Token Plan、智谱 Coding、Kimi Coding、MiniMax Coding Plan、小米 MiMo、OpenCode Zen、**Command Code GOAT** 等），另有「自定义服务商」入口可接入任意兼容端点；DSH 已内置的服务商默认折叠、不重复展示。
+内置 **39 家服务商预设**（OpenAI 兼容 / Anthropic Messages / OpenAI Responses 三种协议），覆盖国际与国内的普通 API 与 **订阅渠道**（百炼 Token Plan、智谱 Coding、Kimi Coding、MiniMax Coding Plan、小米 MiMo、OpenCode Zen 等），另有「自定义服务商」入口可接入任意兼容端点；DSH 已内置的服务商默认折叠、不重复展示。
 
 ## 安装
 
@@ -46,8 +46,6 @@ OpenAI、OpenRouter、Anthropic、Google Gemini、xAI Grok、Mistral、Groq、To
 
 关于内置：DSH 自带 DeepSeek 官方适配器（`llm-deepseek`），其目录里的 `stepfun` 指向普通付费端点 `api.stepfun.com/v1`——**Step Plan 订阅端点（`step_plan/v1`）没有内置条目，因此本插件提供该预设**；其余与本插件重合的服务商由 DSH 原生目录覆盖的那些默认折叠在「显示 DSH 已内置」开关后。已配置过的 Key（包括来自环境变量的）会被识别，留空输入框即可直接启用。
 
-**Command Code GOAT** 预设收录了 GOAT 计划的 58 个模型（GPT-6 Luna、MiMo V2.6 全系、Kimi K3、Grok 4.7、Qwen 3.8、GLM-5.3、DeepSeek V4 系列、Gemini 3.8 Flash 等，含 `poolside/laguna-s-2.1-free`、`inclusionai/ling-3.0-flash-sante:free` 两个免费模型）；需 Pro/Max 计划的高级模型（GPT-6 Astra/Sol、Claude 系列等）不在其中。
-
 ## WorkBuddy（腾讯）适配
 
 同一份预设目录也能写入 WorkBuddy 的本地自定义模型文件（`~/.workbuddy/models.json`，明文 JSON，应用启动时读取）：
@@ -68,24 +66,6 @@ node tools/workbuddy.mjs add-custom --model gpt-5.1 --url https://api.openai.com
 - Key 来源三选一：`--key`、`--key-env NAME`、`--key-from-dsh REF`（复用 DSH 凭据服务里的 Key）
 - WorkBuddy 的模型按 ID 全局唯一：国内/国际预设共用模型 ID 时，**目录里靠前的一家生效**；带 Key 的 `add` 是显式安装、必定覆盖；`add-all` 不会覆盖已配置 Key 的条目。想换另一家先 `remove <另一家>` 再 `add <目标家> --key ...`
 
-## OpenCode 适配
-
-同一份预设目录也能写入 OpenCode 的配置（`~/.config/opencode/opencode.json` 或 `.jsonc`，自动备份）：
-
-```sh
-node tools/opencode.mjs list                          # 查看预设与 OpenCode 里的已装状态
-node tools/opencode.mjs add commandcode --key-from-dsh COMMANDCODE_API_KEY
-node tools/opencode.mjs add openrouter --key <key> --models deepseek/deepseek-chat
-node tools/opencode.mjs add-all [--prune]             # 全部预设（无 Key 的先用占位）
-node tools/opencode.mjs remove commandcode
-node tools/opencode.mjs add-custom --route myapi --model gpt-5.1 --url https://api.openai.com/v1 --key sk-... [--reasoning] [--model-name "GPT-5.1"]
-```
-
-- Key 存进 provider 的 `options.apiKey`；模型带 OpenCode 需要的元数据（`name` / `limit` / `reasoning` / `tool_call` / `attachment`）
-- OpenCode 的 models.dev 目录里没有的路由自动补上正确的 npm SDK（依据本地 `~/.cache/opencode/models.json` 判定协议）
-- 改完配置**重启 OpenCode 应用**（命令行 `opencode run` 每次启动即读）
-- Key 来源三选一：`--key`、`--key-env NAME`、`--key-from-dsh REF`
-
 ## 目录维护
 
 - 模型清单与逐模型兼容开关可从任意权威目录刷新：`node tools/refresh-catalog.mjs --catalog <catalog.json>`（先 `--dry` 审阅）；路由级只保留全部模型一致的开关，不一致的由模型自己携带 `compat`
@@ -103,11 +83,7 @@ node tools/opencode.mjs add-custom --route myapi --model gpt-5.1 --url https://a
 
 Expand the providers DSH can use: **pick a provider, paste the API key, press Enable**. The plugin writes the official `llm-pi-ai` route and its credential in one step - effective immediately, no restart, no hand-editing `settings.yaml`.
 
-40 built-in presets (OpenAI-compatible, Anthropic Messages and OpenAI Responses protocols) plus a custom-endpoint form for any compatible gateway. Presets your target app already ships natively are collapsed by default, never deleted.
-
-The **Command Code GOAT** preset carries all 58 models of the GOAT plan (GPT-6 Luna, the MiMo V2.6 family, Kimi K3, Grok 4.7, Qwen 3.8, GLM-5.3, DeepSeek V4 series, Gemini 3.8 Flash, plus the free `poolside/laguna-s-2.1-free` and `inclusionai/ling-3.0-flash-sante:free`). Pro/Max-only models (GPT-6 Astra/Sol, the Claude family) are excluded.
-
-The same catalog ships two CLIs: `provider-hub-workbuddy` writes WorkBuddy's local `models.json`, `provider-hub-opencode` writes OpenCode's config; both accept `--key-from-dsh <REF>` to reuse a key already stored in DSH.
+39 built-in presets (OpenAI-compatible, Anthropic Messages and OpenAI Responses protocols) plus a custom-endpoint form for any compatible gateway. Presets your target app already ships natively are collapsed by default, never deleted.
 
 ### Install
 
