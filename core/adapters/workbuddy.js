@@ -156,10 +156,32 @@ export function upsertWorkbuddyModels(list, entries) {
  * @param preset - catalog preset.
  * @returns `{ models, removed }`.
  */
-export function removeWorkbuddyModels(list, preset) {
-  const models = Array.isArray(list) ? list : []
+export function removeWorkbuddyModels(list, preset) {  const models = Array.isArray(list) ? list : []
   const kept = models.filter((entry) => entry?.url !== preset.baseURL)
   return { models: kept, removed: models.length - kept.length }
+}
+
+/**
+ * Strip `apiKey` from entries so the key can be (re)entered in the app's own
+ * Models panel - WorkBuddy has no separate credential store, its panel edits
+ * this very file. `urls` limits which endpoints are touched; omit for all.
+ * @param list - current models.json array.
+ * @param urls - optional Set/array of base URLs to touch.
+ * @returns `{ models, cleared }`.
+ */
+export function stripEntryKeys(list, urls) {
+  const wanted = urls ? new Set(urls) : null
+  const models = Array.isArray(list) ? list.map((entry) => ({ ...entry })) : []
+  let cleared = 0
+  for (const entry of models) {
+    if (!entry || typeof entry !== 'object') continue
+    if (wanted && !wanted.has(entry.url)) continue
+    if (typeof entry.apiKey === 'string' && entry.apiKey !== '') {
+      delete entry.apiKey
+      cleared += 1
+    }
+  }
+  return { models, cleared }
 }
 
 /**

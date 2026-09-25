@@ -646,6 +646,25 @@ export const PRESETS = [
       { id: "LongCat-2.0", name: "LongCat 2.0", contextWindow: 1000000, maxTokens: 131072, input: ['text'] },
     ],
   },
+  {
+    id: 'volcengine-agent-plan',
+    name: '火山方舟 Agent Plan',
+    docs: 'https://www.volcengine.com/docs/82379',
+    keyUrl: 'https://console.volcengine.com/ark',
+    env: 'ARK_API_KEY',
+    baseURL: 'https://ark.cn-beijing.volces.com/api/plan/v3',
+    api: 'openai-responses',
+    models: [
+      { id: "ark-code-latest", name: "Ark Code Latest", contextWindow: 256000, maxTokens: 128000, input: ['text'], reasoningEfforts: {"low":"low","medium":"medium","high":"high"} },
+      { id: "deepseek-v4.1-flash", name: "DeepSeek V4.1 Flash", contextWindow: 1048576, maxTokens: 384000, input: ['text', 'image'], reasoningEfforts: {"off":"none","low":"low","high":"high","max":"max"} },
+      { id: "glm-5.3", name: "GLM-5.3", contextWindow: 1048576, maxTokens: 131072, input: ['text'], reasoningEfforts: {"low":"low","high":"high","max":"max"} },
+      { id: "kimi-k3", name: "Kimi K3", contextWindow: 1048576, maxTokens: 131072, input: ['text', 'image'], reasoningEfforts: {"low":"low","high":"high","max":"max"} },
+      { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro", contextWindow: 1048576, maxTokens: 384000, input: ['text'], reasoningEfforts: {"off":"none","high":"high","max":"max"} },
+      { id: "deepseek-v4-flash", name: "DeepSeek V4 Flash", contextWindow: 1048576, maxTokens: 384000, input: ['text'], reasoningEfforts: {"off":"none","low":"low","high":"high","max":"max"} },
+      { id: "kimi-k2.8-preview", name: "Kimi K2.8 Preview", contextWindow: 1048576, maxTokens: 131072, input: ['text', 'image'], reasoningEfforts: {"low":"low","high":"high","max":"max"} },
+    ],
+  },
+
 ]
 // --- end preset catalog ---
 

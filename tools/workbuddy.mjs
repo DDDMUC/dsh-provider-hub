@@ -8,14 +8,23 @@
 // applies, then the file is replaced atomically. WorkBuddy reads it at startup
 // -- restart the app after a change.
 //
+// Default flow mirrors the app's own panel: the tool writes **definitions**
+// (endpoint / models / limits / capability switches) with NO key; WorkBuddy's
+// 设置 → 模型 → 模型管理 panel edits this same file and has native apiKey /
+// endpoint / limit fields, so the key is filled in-app. `--key` (or --key-env
+// / --key-from-dsh) still writes the key straight away for one-shot setups,
+// and `unset-key` moves keyed entries back to the in-app flow.
+//
 // Usage:
 //   node tools/workbuddy.mjs list
-//   node tools/workbuddy.mjs add <presetId> --key <key> [--models a,b]
+//   node tools/workbuddy.mjs add <presetId> [--models a,b]      # 只写定义，Key 在应用里填
+//   node tools/workbuddy.mjs add <presetId> --key <key>
 //   node tools/workbuddy.mjs add <presetId> --key-env STEPFUN_API_KEY
 //   node tools/workbuddy.mjs add <presetId> --key-from-dsh STEPFUN_API_KEY
 //   node tools/workbuddy.mjs add-all [--prune]            # 全部预设；--prune 同时清掉目录里已不存在的旧条目
+//   node tools/workbuddy.mjs unset-key [<presetId>|--all] # 清掉条目里的 Key，改为应用内填
 //   node tools/workbuddy.mjs remove <presetId>
-//   node tools/workbuddy.mjs add-custom --model <id> --url <base> --key <key> [--name <display>]
+//   node tools/workbuddy.mjs add-custom --model <id> --url <base> [--key <key>] [--name <display>]
 //                                      [--no-tools] [--no-vision] [--no-reasoning]
 //
 // Global: --file <path> overrides the models.json location (tests).
@@ -32,6 +41,7 @@ import {
   installedPresets,
   isValidWorkbuddyEntry,
   removeWorkbuddyModels,
+  stripEntryKeys,
   upsertWorkbuddyModels,
 } from '../core/adapters/workbuddy.js'
 
@@ -111,8 +121,9 @@ function workbuddyRunning() {
   }
 }
 
-function resolveKey(flags, envName) {
-  if (typeof flags.key === 'string') return flags.key.trim()
+/** Key 三选一，都不给就返回 undefined（定义照写，Key 在应用里填）。 */
+function optionalKey(flags, envName) {
+  if (typeof flags.key === 'string' && flags.key.trim() !== '') return flags.key.trim()
   if (typeof flags['key-env'] === 'string') {
     const value = process.env[flags['key-env']]
     if (!value) throw new Error(`环境变量 ${flags['key-env']} 为空`)
@@ -123,7 +134,14 @@ function resolveKey(flags, envName) {
     if (!value) throw new Error(`DSH 凭据里没有 ${flags['key-from-dsh']}`)
     return value.trim()
   }
-  throw new Error('缺少 Key：用 --key <key>、--key-env <NAME> 或 --key-from-dsh <REF>')
+  return undefined
+}
+
+/** WorkBuddy 官方模型面板里填 Key 的路径（应用内完成）。 */
+function printFillHint(preset) {
+  console.log(`\n在 WorkBuddy 里填 Key（应用内完成，无需命令）：
+  设置 → 模型 → 模型管理 → 找到「${preset.name}」的条目 → 编辑
+  面板里可直接填：接口地址、API Key、上下文/输出限额、图片/推理/工具调用开关`)
 }
 
 function report(file, models, extra) {
@@ -158,13 +176,14 @@ function commandAdd(file, args) {
   const presetId = args._[1]
   const preset = findPreset(presetId)
   if (!preset) throw new Error(`未知预设：${presetId}（用 list 查看可用项）`)
-  const key = resolveKey(args.flags, preset.env)
+  const key = optionalKey(args.flags, preset.env)
   const modelIds = typeof args.flags.models === 'string' ? args.flags.models.split(',').map((id) => id.trim()).filter(Boolean) : undefined
   const entries = buildWorkbuddyEntries(preset, { key, modelIds })
   if (entries.length === 0) throw new Error('没有匹配的模型')
-  const { models, added, updated } = upsertWorkbuddyModels(readModels(file), entries)
+  const { models, added, updated, kept } = upsertWorkbuddyModels(readModels(file), entries)
   writeModels(file, models)
-  report(file, models, { preset: preset.id, added, updated })
+  report(file, models, { preset: preset.id, added, updated, kept })
+  if (key === undefined && added + updated > 0) printFillHint(preset)
 }
 
 /** Drop preset-owned entries whose model id left the catalog (stale ids). */
@@ -202,8 +221,10 @@ function commandAddAll(file, args) {
   const keyless = current.filter((entry) => !entry.apiKey).length
   report(file, current, { presets: PRESETS.length, added, updated, pruned, keyless })
   if (keyless > 0) {
-    console.log(`\n有 ${keyless} 个模型还没填 API Key：在 WorkBuddy 的模型管理里编辑，或跑 add <presetId> --key <key> 单独补。`)
-    console.log('已有 Key 的条目不会被覆盖（合并时保留原 apiKey）。')
+    console.log(`\n有 ${keyless} 个模型还没填 API Key。两种补法：
+  1. 应用内（推荐）：设置 → 模型 → 模型管理 → 找到条目编辑，面板里直接填 Key
+  2. 命令行：provider-hub-workbuddy add <presetId> --key <key>
+  已有 Key 的条目不会被覆盖（合并时保留原 apiKey）。`)
   }
 }
 
@@ -217,6 +238,24 @@ function commandRemove(file, args) {
   report(file, models, { preset: preset.id, removed })
 }
 
+function commandUnsetKey(file, args) {
+  const presetId = args._[1]
+  let urls = null
+  if (presetId !== undefined && presetId !== '--all') {
+    const preset = findPreset(presetId)
+    if (!preset) throw new Error(`未知预设：${presetId}（用 list 查看可用项）`)
+    urls = [preset.baseURL]
+  }
+  const { models, cleared } = stripEntryKeys(readModels(file), urls)
+  if (cleared === 0) {
+    console.log('没有带 Key 的条目需要清理。')
+    return
+  }
+  writeModels(file, models)
+  report(file, models, { cleared })
+  console.log('\n这些条目的 Key 已从 models.json 移除；在 WorkBuddy 的模型管理里选中条目编辑即可重新填入（应用内完成）。')
+}
+
 function commandAddCustom(file, args) {
   const flags = args.flags
   const modelId = typeof flags.model === 'string' ? flags.model.trim() : ''
@@ -224,7 +263,7 @@ function commandAddCustom(file, args) {
   const url = typeof flags.url === 'string' ? flags.url.trim() : ''
   const urlError = baseUrlError(url)
   if (urlError) throw new Error(urlError)
-  const key = resolveKey(flags, undefined)
+  const key = optionalKey(flags, undefined)
   const entry = {
     id: modelId,
     name: typeof flags.name === 'string' && flags.name.trim() !== '' ? flags.name.trim() : modelId,
@@ -236,9 +275,10 @@ function commandAddCustom(file, args) {
     useCustomProtocol: flags['full-url'] === true,
   }
   if (!isValidWorkbuddyEntry(entry)) throw new Error('生成的条目未通过 WorkBuddy 校验')
-  const { models, added, updated } = upsertWorkbuddyModels(readModels(file), [entry])
+  const { models, added, updated, kept } = upsertWorkbuddyModels(readModels(file), [entry])
   writeModels(file, models)
-  report(file, models, { custom: modelId, added, updated })
+  report(file, models, { custom: modelId, added, updated, kept })
+  if (key === undefined && added > 0) printFillHint({ name: entry.name })
 }
 
 // --- main --------------------------------------------------------------------
@@ -252,9 +292,10 @@ function main() {
     if (command === 'list' || command === undefined) commandList(file)
     else if (command === 'add') commandAdd(file, args)
     else if (command === 'add-all') commandAddAll(file, args)
+    else if (command === 'unset-key') commandUnsetKey(file, args)
     else if (command === 'remove') commandRemove(file, args)
     else if (command === 'add-custom') commandAddCustom(file, args)
-    else throw new Error(`未知命令：${command}（list / add / add-all / remove / add-custom）`)
+    else throw new Error(`未知命令：${command}（list / add / add-all / unset-key / remove / add-custom）`)
   } catch (error) {
     console.error(`错误：${String((error && error.message) || error)}`)
     process.exitCode = 1

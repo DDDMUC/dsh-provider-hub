@@ -11,6 +11,7 @@ import {
   installedPresets,
   isValidWorkbuddyEntry,
   removeWorkbuddyModels,
+  stripEntryKeys,
   upsertWorkbuddyModels,
 } from '../core/adapters/workbuddy.js'
 
@@ -126,4 +127,23 @@ test('workbuddy: catalog adds never clobber a configured entry or an earlier dup
   const third = upsertWorkbuddyModels(second.models, buildWorkbuddyEntries(global, { key: 'global-key', modelIds: ['step-5-preview'] }))
   assert.equal(third.models[0].url, 'https://api.stepfun.ai/step_plan/v1')
   assert.equal(third.models[0].apiKey, 'global-key')
+})
+
+test('workbuddy: stripEntryKeys clears keys in place and honours the endpoint filter', () => {
+  const cn = findPreset('stepfun-step-plan')
+  const list = [
+    { id: 'a', name: 'A', url: cn.baseURL, apiKey: 'k1' },
+    { id: 'b', name: 'B', url: 'https://other.example/v1', apiKey: 'k2' },
+    { id: 'c', name: 'C', url: cn.baseURL },
+  ]
+  const scoped = stripEntryKeys(list, [cn.baseURL])
+  assert.equal(scoped.cleared, 1)
+  assert.equal(scoped.models[0].apiKey, undefined)
+  assert.equal(scoped.models[1].apiKey, 'k2')
+  // originals untouched
+  assert.equal(list[0].apiKey, 'k1')
+
+  const all = stripEntryKeys(list)
+  assert.equal(all.cleared, 2)
+  assert.deepEqual(all.models.map((entry) => entry.apiKey), [undefined, undefined, undefined])
 })
