@@ -19,7 +19,10 @@
   ],
   "scripts": {
     "test": "node --test \"test/*.test.js\"",
-    "workbuddy": "node tools/workbuddy.mjs"
+    "workbuddy": "node tools/workbuddy.mjs",
+    "connect": "node tools/connect.mjs",
+    "cc-switch": "node tools/cc-switch.mjs",
+    "patch-chatgpt": "node tools/patch-chatgpt.mjs"
   },
   "keywords": [
     "deepseek-harness",
@@ -58,6 +61,8 @@
   },
   "bin": {
     "provider-hub-workbuddy": "tools/workbuddy.mjs",
-    "provider-hub-opencode": "tools/opencode.mjs"
+    "provider-hub-opencode": "tools/opencode.mjs",
+    "provider-hub-connect": "tools/connect.mjs",
+    "provider-hub-cc-switch": "tools/cc-switch.mjs"
   }
 }
