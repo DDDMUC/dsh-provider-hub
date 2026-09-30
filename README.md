@@ -4,7 +4,7 @@
 
 为 DSH 扩大可用的服务商：**选一个服务商，粘贴 API Key，点启用**——插件把官方 `llm-pi-ai` 路由与凭据一次性写好，立即生效、无需重启、无需手改 `settings.yaml`。
 
-内置 **40 家服务商预设**（OpenAI 兼容 / Anthropic Messages / OpenAI Responses 三种协议），覆盖国际与国内的普通 API 与 **订阅渠道**（百炼 Token Plan、智谱 Coding、Kimi Coding、MiniMax Coding Plan、小米 MiMo、OpenCode Zen、**火山方舟 Agent Plan** 等），另有「自定义服务商」入口可接入任意兼容端点；DSH 已内置的服务商默认折叠、不重复展示。
+内置 **50 家服务商预设**（OpenAI 兼容 / Anthropic Messages / OpenAI Responses 三种协议），覆盖国际与国内的普通 API 与 **订阅渠道**（百炼 Token Plan、智谱 Coding、Kimi Coding、MiniMax Coding Plan、小米 MiMo、OpenCode Zen、**火山方舟 Agent Plan** 等），另有「自定义服务商」入口可接入任意兼容端点；DSH 已内置的服务商默认折叠、不重复展示。
 
 ## 安装
 
@@ -42,7 +42,7 @@ dsh plugin --profile web add link:/path/to/dsh-provider-hub
 
 ## 预设清单
 
-OpenAI、OpenRouter、Anthropic、Google Gemini、xAI Grok、Mistral、Groq、Together、Fireworks、DeepInfra、Novita、Cerebras、NVIDIA NIM、Baseten、HuggingFace Router、**Vercel AI Gateway**、**OpenCode Zen / Zen Go**、硅基流动、月之暗面 Kimi（国内/国际）、**Kimi Coding Plan**、智谱 GLM（国内）、**智谱 Coding Plan**、Z.ai GLM、**MiniMax Coding Plan（国际/国内）**、MiniMax（国内）、**阿里云百炼 Token Plan（国内/国际）**、阿里云百炼 Qwen、百度千帆、腾讯混元、火山方舟（豆包）、**小米 MiMo**、**Ant Ling**、**LongCat（美团）**、**StepFun Step Plan（国内/国际）**、**火山方舟 Agent Plan**。
+OpenAI、OpenRouter、Anthropic、Google Gemini、xAI Grok、Mistral、Groq、Together、Fireworks、DeepInfra、Novita、Cerebras、NVIDIA NIM、Baseten、HuggingFace Router、**Vercel AI Gateway**、**OpenCode Zen / Zen Go**、硅基流动、月之暗面 Kimi（国内/国际）、**Kimi Coding Plan**、智谱 GLM（国内）、**智谱 Coding Plan**、Z.ai GLM、**MiniMax Coding Plan（国际/国内）**、MiniMax（国内）、**阿里云百炼 Token Plan（国内/国际）**、阿里云百炼 Qwen、百度千帆、腾讯混元、火山方舟（豆包）、**小米 MiMo**、**Ant Ling**、**LongCat（美团）**、**StepFun Step Plan（国内/国际）**、**火山方舟 Agent Plan**、**ClinePass**、**ZenMux**、**Poe**、**302.AI**、**七牛云 AI**、**腾讯云 Coding Plan**、**ClinePass**、**DeepSeek**、**小米 MiMo Token Plan（国内/新加坡/美国）**。
 
 **火山方舟 Agent Plan** 预设写入 `https://ark.cn-beijing.volces.com/api/plan/v3`（**不是 `/api/v3`**——后者按量计费），协议走 Responses API（对应 OpenCode 的 `@ai-sdk/openai`；要更旧的 Chat API 就把协议改成 OpenAI 兼容）。收录 `ark-code-latest` 与 deepseek-v4.1-flash / glm-5.3 / kimi-k3 / deepseek-v4-pro / deepseek-v4-flash / kimi-k2.8-preview，后六者均标注 1M 上下文窗口。
 
@@ -91,7 +91,70 @@ provider-hub-opencode add-custom --model gpt-5.1 --url https://api.openai.com/v1
 - 模型条目带 OpenCode 需要的全部元数据：`name` / `limit`（上下文/输出，含 1M 窗口）/ `reasoning` / `tool_call` / `attachment` + `modalities`（方舟文档要求的图片理解字段）
 - OpenCode 的 models.dev 目录里没有的路由自动补正确的 npm SDK（依据本地 `~/.cache/opencode/models.json` 判定协议）
 - Key 三选一：`--key`、`--key-env NAME`、`--key-from-dsh REF`（复用 DSH 凭据服务里的 Key），全部写入 auth.json；配置文件永远零明文 Key
+- `list` 按 **coverage 分区**：OpenCode 原生已内置的（models.dev 目录里有同名 provider）自动折叠成一行，只把「OpenCode 没有的渠道」摆在上面——那才是本工具的价值；`add` 一个原生已覆盖的预设时会提示你它本可走 `/connect`
 - `--key-in-config` 是旧模式（Key 写回 `options.apiKey`），仅供想要单文件自包含配置的用户
+
+## 连接向导（provider-hub-connect）
+
+不想记命令？一条交互式向导就是「第三方登录」入口：列出全部渠道（●=这些 App 原生没有、本工具独有；○=部分 App 原生已有）→ 选编号 → 贴一次 Key → **自动探测本机装了哪些 App 并分别写入**：
+
+```sh
+provider-hub-connect                                          # 或 npm run connect
+echo -e "3\nsk-ant-xxx\ny" | provider-hub-connect            # 也可管道喂输入
+```
+
+- **WorkBuddy**：写入 models.json（之后在应用内也能改 Key）
+- **OpenCode**：定义进配置、Key 进 auth.json（与官方 /connect 同一存储，应用内可查看/断开）
+- **DSH**：打印应用内一步操作（设置页卡片贴 Key 即启用）
+- `--yes` 跳过写入确认
+
+## cc-switch 适配
+
+[cc-switch](https://github.com/farion1231/cc-switch)（136k★ 的多 App 服务商切换器：Claude Code / Codex / Gemini CLI / OpenCode / OpenClaw / Claude Desktop / GrokBuild）的全部状态就是一个纯 JSON：`~/.cc-switch/config.json`（`{version:2, <app>:{providers:{<id>:…}, current}}`）。各段的 settingsConfig 形状照它 Rust 源码（src-tauri/src/provider.rs）逐段实现，我们的目录写进去后直接出现在 cc-switch 的 UI 里：
+
+| 段 | settingsConfig 形状 | 哪些预设能进 |
+|---|---|---|
+| opencode | `{npm, name, options:{baseURL, apiKey}, models}` | 全部协议 |
+| codex | `{auth:{OPENAI_API_KEY}, config:"<config.toml>"}` | OpenAI 兼容（wire_api 按协议填 responses/chat） |
+| claude / claude-desktop | `{env:{ANTHROPIC_BASE_URL, ANTHROPIC_AUTH_TOKEN}, model}` | Anthropic Messages |
+| gemini | `{env:{GOOGLE_GEMINI_BASE_URL, GEMINI_API_KEY}}` | Google 自家端点 |
+| openclaw | `{baseUrl, apiKey}` | 全部协议 |
+
+```sh
+provider-hub-cc-switch list
+provider-hub-cc-switch add volcengine-agent-plan --key-from-dsh ARK_API_KEY   # 自动写全部匹配段
+provider-hub-cc-switch add minimax-coding-plan --app claude,claude-desktop    # 只写指定段
+provider-hub-cc-switch add-all
+provider-hub-cc-switch unset-key <presetId> [--app ...]   # Key 改为在 cc-switch UI 里填
+provider-hub-cc-switch remove <presetId> [--app ...]
+```
+
+- Key 写进 cc-switch 自己的 config（它的设计如此：切换时才写入 App 的 live 配置），**不动** OpenCode 的 auth.json
+- 合并保留其它 App 段与用户手编辑；**绝不改 `current`**，不抢用户当前选中的 provider
+- GrokBuild / Hermes / Pi 段的形状还没扒全（配置文本是 TOML/YAML 内嵌），暂不写入
+- 连接向导（provider-hub-connect）检测到 cc-switch 也会一并写入全部匹配段
+
+## ChatGPT 桌面版「从第三方登录」按钮（实验）
+
+把我们的渠道挑选器**种进 ChatGPT/Codex 桌面版的登录页**——右下角会出现「⚡ 从第三方登录」悬浮按钮，点开就是全部渠道的搜索/挑选/填 Key 面板：
+
+```sh
+npm run patch-chatgpt            # = node tools/patch-chatgpt.mjs --apply
+node tools/patch-chatgpt.mjs --status
+node tools/patch-chatgpt.mjs --restore
+```
+
+原理（`tools/patch-chatgpt.mjs`，全部可逆）：
+1. 渠道挑选器写到 `~/.provider-hub/overlay.js`（改它不用重新打包）
+2. 给 app.asar 的入口（package.json 的 `main`）加一段 4 行钩子：每个 webContents 加载完执行这个文件
+3. 重打包 asar → 重算 SHA256 写回 Info.plist 的 `ElectronAsarIntegrity` → ad-hoc 重签名，应用照常启动
+4. 原始 asar/Info.plist 备份在 `~/.provider-hub/`，`--restore` 一键还原
+
+已知限制（不藏奸）：
+- **每次 ChatGPT 更新都会冲掉补丁**，重跑 `--apply` 即可
+- ad-hoc 签名丢失 notarization（本机运行无碍）
+- macOS 会拦截别的进程改 `/Applications` 里的 App——在**你自己的终端**里运行 `npm run patch-chatgpt`（首次弹权限框点允许，或加 sudo）
+- 按钮目前是**入口**：写 Key 进本机渠道库；把 ChatGPT 流量导向所选服务商还需要本地代理（下一步）
 
 ## 目录维护
 
