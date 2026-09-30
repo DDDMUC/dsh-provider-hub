@@ -32,6 +32,7 @@ import os from 'node:os'
 import path from 'node:path'
 
 import { PRESETS, findPreset } from '../core/providers.js'
+import { coverageOf } from '../core/coverage.js'
 import {
   authEntryError,
   authRoutes,
@@ -239,13 +240,24 @@ function commandList(file, args) {
   const { config } = readConfig(file)
   const installed = installedPresets(config, PRESETS)
   const connected = authRoutes(readAuth(authFile(args)))
+  // OpenCode 原生已内置的（models.dev 目录里有同名 provider）折叠展示：
+  // 那些让用户走 /connect 就行，别在这里重复出现。
+  const coverage = coverageOf(PRESETS, [...modelsDevKnown()])
   console.log(`OpenCode 配置: ${file}`)
   console.log(`现有 provider: ${Object.keys(config.provider ?? {}).length}\n`)
-  for (const preset of PRESETS) {
+  console.log(`── OpenCode 没有的渠道（本工具的价值，${coverage.visible.length} 个）──`)
+  for (const id of coverage.visible) {
+    const preset = PRESETS.find((p) => p.id === id)
     const count = installed.get(preset.id)
     const mark = count === undefined ? ' ' : '已装'
     const key = count === undefined ? '' : connected.has(preset.id) ? 'Key: 已连接' : inlineKey(config, preset.id) ? 'Key: 配置文件残留（跑 migrate-key）' : 'Key: 未连接'
     console.log(`  ${mark} ${preset.id.padEnd(28)} ${preset.name}  (${preset.models.length} 个模型)  ${key}`)
+  }
+  const installedNative = coverage.covered.filter((c) => installed.has(c.id))
+  if (coverage.covered.length) {
+    console.log(`\n── OpenCode 原生已内置（${coverage.covered.length} 个，折叠；这些走 /connect 填 Key 即可）──`)
+    if (installedNative.length) console.log(`  其中你已用本工具装过: ${installedNative.map((c) => c.id).join(', ')}`)
+    console.log(`  ${coverage.covered.map((c) => c.id).join(', ')}`)
   }
   const foreign = Object.keys(config.provider ?? {}).filter((route) => !PRESETS.some((preset) => preset.id === route))
   if (foreign.length) console.log('\n其它 provider（不由本工具管理）:', foreign.join(', '))
@@ -283,8 +295,10 @@ function commandAdd(file, args) {
     writeAuth(authPath, merged)
     keyWhere = legacy ? '配置文件（--key-in-config 旧模式）' : `auth.json（${authPath}，可在 OpenCode 连接提供商里管理）`
   }
+  const native = modelsDevKnown().has(preset.id)
   report(file, next, { preset: preset.id, models: Object.keys(entry[preset.id].models).length, key: keyWhere ?? '未提供（在应用里填）' })
-  if (keyWhere === null) printConnectHint(preset.id)
+  if (native) console.log(`\n注意：OpenCode 原生已内置 ${preset.id}（models.dev 目录里有，走 /connect 填 Key 即可）。本工具仍写入是为了用本目录的端点/模型元数据覆盖默认值——不想要就 remove ${preset.id}。`)
+  if (keyWhere === null && !native) printConnectHint(preset.id)
 }
 
 function commandAddAll(file, args) {

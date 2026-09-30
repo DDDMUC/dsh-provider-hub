@@ -150,3 +150,12 @@ test('coverage: StepFun Step Plan is not covered by the built-in stepfun entry',
   assert.equal(profile.apiKeyEnv, 'STEPFUN_API_KEY')
   assert.ok(profile.models.some((model) => model.id === 'step-5-preview'))
 })
+
+test('coverage: accepts any iterable of native ids (Set or array)', () => {
+  const presets = [{ id: 'openai' }, { id: 'cline-pass' }, { id: 'volcengine-agent-plan' }]
+  const asArray = coverageOf(presets, ['openai'])
+  const asSet = coverageOf(presets, new Set(['openai']))
+  assert.deepEqual(asArray.visible, asSet.visible)
+  assert.deepEqual(asSet.covered, [{ id: 'openai', as: 'openai' }])
+  assert.deepEqual(coverageOf(presets, undefined).visible.map((p) => p), ['openai', 'cline-pass', 'volcengine-agent-plan'])
+})

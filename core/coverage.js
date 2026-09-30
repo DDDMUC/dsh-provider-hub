@@ -18,7 +18,7 @@
  * @returns `{ visible, covered }`; covered entries carry the id that matched.
  */
 export function coverageOf(presets, nativeIds) {
-  const native = new Set(Array.isArray(nativeIds) ? nativeIds : [])
+  const native = new Set(nativeIds && typeof nativeIds[Symbol.iterator] === 'function' ? nativeIds : [])
   const visible = []
   const covered = []
   for (const preset of presets) {

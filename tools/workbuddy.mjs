@@ -35,6 +35,8 @@ import path from 'node:path'
 import { execFileSync } from 'node:child_process'
 
 import { PRESETS, findPreset } from '../core/providers.js'
+import { coverageOf } from '../core/coverage.js'
+import { WORKBUDDY_NATIVE_IDS } from '../core/native-ids.js'
 import {
   baseUrlError,
   buildWorkbuddyEntries,
@@ -157,13 +159,21 @@ function report(file, models, extra) {
 function commandList(file) {
   const models = readModels(file)
   const installed = installedPresets(models, PRESETS)
+  // WorkBuddy 原生已内置的（应用自己的模型目录里有）折叠展示：
+  // 那些在设置 → 模型里直接加就行，别在这里重复出现。
+  const coverage = coverageOf(PRESETS, WORKBUDDY_NATIVE_IDS)
   console.log(`WorkBuddy models.json: ${file}`)
   console.log(`现有条目：${models.length}\n`)
-  console.log('预设（"已装" 表示 models.json 里已有该端点的条目）：')
-  for (const preset of PRESETS) {
+  console.log(`── WorkBuddy 没有的渠道（本工具的价值，${coverage.visible.length} 个）──`)
+  for (const id of coverage.visible) {
+    const preset = PRESETS.find((p) => p.id === id)
     const count = installed.get(preset.id)
     const mark = count === undefined ? ' ' : '已装'
     console.log(`  ${mark} ${preset.id.padEnd(28)} ${preset.name}  (${preset.models.length} 个模型)`)
+  }
+  if (coverage.covered.length) {
+    console.log(`\n── WorkBuddy 原生已内置（${coverage.covered.length} 个，折叠；这些在应用里「添加模型」直接填 Key 即可）──`)
+    console.log(`  ${coverage.covered.map((c) => c.id).join(', ')}`)
   }
   const foreign = models.filter((entry) => !PRESETS.some((preset) => preset.baseURL === entry.url))
   if (foreign.length > 0) {
@@ -184,6 +194,10 @@ function commandAdd(file, args) {
   writeModels(file, models)
   report(file, models, { preset: preset.id, added, updated, kept })
   if (key === undefined && added + updated > 0) printFillHint(preset)
+  const nativeAliases = [preset.id, ...(preset.nativeIds ?? [])]
+  if (nativeAliases.some((id) => WORKBUDDY_NATIVE_IDS.includes(id))) {
+    console.log(`\n注意：WorkBuddy 原生已内置 ${preset.name}（应用里「添加模型」可直接填 Key）。本工具仍写入是为了用本目录的端点/模型元数据覆盖默认值——不想要就 remove ${preset.id}。`)
+  }
 }
 
 /** Drop preset-owned entries whose model id left the catalog (stale ids). */
