@@ -1,7 +1,7 @@
 {
   "name": "dsh-provider-hub",
-  "version": "0.3.1",
-  "description": "只填 Key 的服务商预设：为 DSH 一键写入官方 llm-pi-ai 路由与凭据（插件），并可写入腾讯 WorkBuddy 的本地 models.json 与 OpenCode 配置（CLI，Key 走 OpenCode 自己的 auth.json）；核心为纯 JS，可被更多应用的外壳复用。",
+  "version": "0.3.2",
+  "description": "只填 Key 的服务商预设：50 家渠道为 DSH 一键写入官方 llm-pi-ai 路由与凭据（插件），并可写入腾讯 WorkBuddy、OpenCode（Key 走其 auth.json）与 cc-switch 的配置（CLI）；核心为纯 JS，可被更多应用的外壳复用。",
   "type": "module",
   "main": "src/index.js",
   "exports": {
