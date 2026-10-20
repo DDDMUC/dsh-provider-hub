@@ -72,6 +72,19 @@ test('buildProfile: per-model compat passes through alongside the route consensu
   assert.equal(profile.compat.supportsStore, false)
 })
 
+test('buildProfile: opencode-go carries the session header the Go gateway requires', () => {
+  const profile = buildProfile({ presetId: 'opencode-go' })
+  assert.equal(profile.baseURL, 'https://opencode.ai/zen/go/v1')
+  assert.equal(profile.headers['x-opencode-session'], 'dsh-provider-hub-opencode-go')
+  assert.ok(profile.models.some((model) => model.id === 'step-5-preview-free'))
+  assert.equal(JSON.stringify(profile).includes('undefined'), false)
+})
+
+test('buildProfile: presets without headers omit the field entirely', () => {
+  const profile = buildProfile({ presetId: 'openrouter' })
+  assert.equal('headers' in profile, false)
+})
+
 test('buildProfile: custom route builds models with defaults', () => {
   const profile = buildProfile({
     route: 'my-gateway',

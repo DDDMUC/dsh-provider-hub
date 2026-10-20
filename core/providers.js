@@ -476,17 +476,23 @@ export const PRESETS = [
   {
     id: "opencode-go",
     name: "OpenCode Zen Go",
-    docs: "https://opencode.ai/docs/zen",
+    docs: "https://opencode.ai/docs/go",
     keyUrl: "https://opencode.ai/auth",
     env: "OPENCODE_API_KEY",
     baseURL: "https://opencode.ai/zen/go/v1",
     api: "openai-responses",
     compat: {"supportsStore":false,"supportsDeveloperRole":false,"maxTokensField":"max_tokens"},
+    // The Go gateway rejects every request without a stable x-opencode-session
+    // header; the pi-ai adapter never sends that header, so the profile-level
+    // headers (merged into each request by dsh-llm-pi-ai) inject it here.
+    headers: { "x-opencode-session": "dsh-provider-hub-opencode-go" },
     models: [
       { id: "gpt-5.6-luna", name: "GPT-5.6 Luna", contextWindow: 1050000, maxTokens: 128000, input: ['text', 'image'], reasoningEfforts: {"low":"low","medium":"medium","high":"high","xhigh":"xhigh","max":"max"} },
       { id: "kimi-k3", name: "Kimi K3", contextWindow: 1048576, maxTokens: 131072, input: ['text', 'image'], reasoningEfforts: {"max":"max"} },
       { id: "mimo-v2.5-pro", name: "MiMo V2.5 Pro", contextWindow: 1048576, maxTokens: 128000, input: ['text'] },
       { id: "muse-spark-1.2-contributor", name: "Muse Spark 1.2 Contributor", contextWindow: 1048576, maxTokens: 131072, input: ['text', 'image'], reasoningEfforts: {"minimal":"minimal","low":"low","medium":"medium","high":"high","xhigh":"xhigh"} },
+      { id: "step-5-preview-free", name: "Step 5 Preview Free", contextWindow: 1000000, maxTokens: 64000, input: ['text', 'image'], reasoningEfforts: { "off": null, "low": "low", "medium": "medium", "high": "high" } },
+      { id: "longcat-2.5-preview-free", name: "LongCat 2.5 Preview Free", contextWindow: 1048576, maxTokens: 65536, input: ['text', 'image'] },
     ],
   },
   {
@@ -762,7 +768,66 @@ export const PRESETS = [
       { id: "cline-pass/deepseek-v4-flash", name: "DeepSeek V4 Flash", contextWindow: 1000000, maxTokens: 384000, input: ['text'], reasoningEfforts: {"off":"none","low":"low","high":"high","max":"max"} },
     ],
   },
-
+  {
+    id: 'cline-free',
+    name: 'Cline Free',
+    docs: 'https://cline.bot',
+    keyUrl: 'https://cline.bot/dashboard',
+    env: 'CLINE_API_KEY',
+    baseURL: 'https://api.cline.bot/api/v1',
+    api: 'openai-completions',
+    models: [
+      { id: "poolside/laguna-s-2.1:free", name: "Laguna S 2.1 (free)", contextWindow: 262144, maxTokens: 32768, input: ['text'] },
+      { id: "poolside/laguna-xs-2.1:free", name: "Laguna XS 2.1 (free)", contextWindow: 262144, maxTokens: 32768, input: ['text'] },
+      { id: "nvidia/nemotron-3.5-lightning:free", name: "Nemotron 3.5 Lightning (free)", contextWindow: 1000000, maxTokens: 65536, input: ['text'] },
+      { id: "nvidia/nemotron-3-ultra-550b-a55b:free", name: "Nemotron 3 Ultra 550B (free)", contextWindow: 1000000, maxTokens: 65536, input: ['text'], reasoningEfforts: {"off":null,"low":"low","medium":"medium","high":"high"} },
+      { id: "nvidia/nemotron-3-super-120b-a12b:free", name: "Nemotron 3 Super 120B (free)", contextWindow: 262144, maxTokens: 235929, input: ['text'], reasoningEfforts: {"off":null,"low":"low","medium":"medium","high":"high"} },
+      { id: "thinkingmachines/inkling:free", name: "Inkling (free)", contextWindow: 1048576, maxTokens: 262144, input: ['text'], reasoningEfforts: {"off":null,"low":"low","medium":"medium","high":"high"} },
+      { id: "dots-studio/dots-3-note-preview:free", name: "DOTS.3 Note Preview (free)", contextWindow: 512000, maxTokens: 460800, input: ['text', 'image'] },
+      { id: "cohere/north-mini-code:free", name: "North Mini Code (free)", contextWindow: 256000, maxTokens: 64000, input: ['text'] },
+      { id: "google/gemma-4-31b-it:free", name: "Gemma 4 31B (free)", contextWindow: 262144, maxTokens: 32768, input: ['text'] },
+      { id: "liquid/lfm-2.5-2.6b:free", name: "LFM 2.5 2.6B (free)", contextWindow: 65536, maxTokens: 8192, input: ['text'] },
+    ],
+  },
+  {
+    id: 'kilo-gateway',
+    name: 'Kilo Gateway',
+    docs: 'https://kilo.ai/docs/gateway',
+    keyUrl: 'https://app.kilo.ai',
+    env: 'KILO_API_KEY',
+    baseURL: 'https://api.kilo.ai/api/gateway',
+    api: 'openai-completions',
+    // Kilo speaks the OpenRouter reasoning wire (`reasoning: { effort }`), and
+    // Step 5 Preview refuses a disabled-thinking request outright, so this route
+    // offers low/medium/high only and never sends an `off` value.
+    compat: { thinkingFormat: 'openrouter' },
+    models: [
+      { id: "stepfun/step-5-preview-free", name: "Step 5 Preview (free)", contextWindow: 1000000, maxTokens: 64000, input: ['text', 'image'], reasoningEfforts: { low: 'low', medium: 'medium', high: 'high' } },
+      { id: "kilo-auto/free", name: "Auto Free", contextWindow: 256000, maxTokens: 32768, input: ['text'] },
+      { id: "nvidia/nemotron-3-super-120b-a12b:free", name: "Nemotron 3 Super 120B (free)", contextWindow: 262144, maxTokens: 235929, input: ['text'], reasoningEfforts: { low: 'low', medium: 'medium', high: 'high' } },
+      { id: "poolside/laguna-s-2.1:free", name: "Laguna S 2.1 (free)", contextWindow: 262144, maxTokens: 32768, input: ['text'] },
+      { id: "dots-studio/dots-3-note-preview:free", name: "DOTS.3 Note Preview (free)", contextWindow: 512000, maxTokens: 460800, input: ['text', 'image'] },
+    ],
+  },
+  {
+    id: 'nous-portal',
+    name: 'Nous Portal',
+    docs: 'https://inference-api.nousresearch.com/',
+    keyUrl: 'https://portal.nousresearch.com/',
+    env: 'NOUS_API_KEY',
+    baseURL: 'https://inference-api.nousresearch.com/v1',
+    api: 'openai-completions',
+    models: [
+      { id: "stepfun/step-5-preview:free", name: "Step 5 Preview (free)", contextWindow: 1000000, maxTokens: 64000, input: ['text', 'image'], reasoningEfforts: { off: null, low: 'low', medium: 'medium', high: 'high' } },
+      { id: "stepfun/step-3.7-flash:free", name: "Step 3.7 Flash (free)", contextWindow: 262144, maxTokens: 65536, input: ['text', 'image'], reasoningEfforts: { off: null, low: 'low', medium: 'medium', high: 'high' } },
+      { id: "meituan/longcat-2.5-preview:free", name: "LongCat 2.5 Preview (free)", contextWindow: 1048576, maxTokens: 65536, input: ['text', 'image'] },
+      { id: "meituan/longcat-2.0:free", name: "LongCat 2.0 (free)", contextWindow: 1048756, maxTokens: 65536, input: ['text'] },
+      { id: "upstage/solar-mini4:free", name: "Solar Mini 4 (free)", contextWindow: 524288, maxTokens: 131072, input: ['text'], reasoningEfforts: { off: null, low: 'low', medium: 'medium', high: 'high' } },
+      { id: "poolside/laguna-s-2.1:free", name: "Laguna S 2.1 (free)", contextWindow: 262144, maxTokens: 32768, input: ['text'] },
+      { id: "inclusionai/ling-3.0-flash-fin:free", name: "Ling 3.0 Flash Fin (free)", contextWindow: 262144, maxTokens: 32768, input: ['text'] },
+      { id: "inclusionai/ling-3.0-flash-sante:free", name: "Ling 3.0 Flash Sante (free)", contextWindow: 262144, maxTokens: 32768, input: ['text'] },
+    ],
+  },
   {
     id: 'zenmux',
     name: 'ZenMux',

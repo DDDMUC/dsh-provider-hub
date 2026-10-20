@@ -4,7 +4,7 @@
 
 为 DSH 扩大可用的服务商：**选一个服务商，粘贴 API Key，点启用**——插件把官方 `llm-pi-ai` 路由与凭据一次性写好，立即生效、无需重启、无需手改 `settings.yaml`。
 
-内置 **50 家服务商预设**（OpenAI 兼容 / Anthropic Messages / OpenAI Responses 三种协议），覆盖国际与国内的普通 API 与 **订阅渠道**（百炼 Token Plan、智谱 Coding、Kimi Coding、MiniMax Coding Plan、小米 MiMo、OpenCode Zen、**火山方舟 Agent Plan** 等），另有「自定义服务商」入口可接入任意兼容端点；DSH 已内置的服务商默认折叠、不重复展示。
+内置 **53 家服务商预设**（OpenAI 兼容 / Anthropic Messages / OpenAI Responses 三种协议），覆盖国际与国内的普通 API 与 **订阅渠道**（百炼 Token Plan、智谱 Coding、Kimi Coding、MiniMax Coding Plan、小米 MiMo、OpenCode Zen、**火山方舟 Agent Plan** 等），另有「自定义服务商」入口可接入任意兼容端点；DSH 已内置的服务商默认折叠、不重复展示。
 
 ## 安装
 
@@ -42,9 +42,17 @@ dsh plugin --profile web add link:/path/to/dsh-provider-hub
 
 ## 预设清单
 
-OpenAI、OpenRouter、Anthropic、Google Gemini、xAI Grok、Mistral、Groq、Together、Fireworks、DeepInfra、Novita、Cerebras、NVIDIA NIM、Baseten、HuggingFace Router、**Vercel AI Gateway**、**OpenCode Zen / Zen Go**、硅基流动、月之暗面 Kimi（国内/国际）、**Kimi Coding Plan**、智谱 GLM（国内）、**智谱 Coding Plan**、Z.ai GLM、**MiniMax Coding Plan（国际/国内）**、MiniMax（国内）、**阿里云百炼 Token Plan（国内/国际）**、阿里云百炼 Qwen、百度千帆、腾讯混元、火山方舟（豆包）、**小米 MiMo**、**Ant Ling**、**LongCat（美团）**、**StepFun Step Plan（国内/国际）**、**火山方舟 Agent Plan**、**ClinePass**、**ZenMux**、**Poe**、**302.AI**、**七牛云 AI**、**腾讯云 Coding Plan**、**ClinePass**、**DeepSeek**、**小米 MiMo Token Plan（国内/新加坡/美国）**。
+OpenAI、OpenRouter、Anthropic、Google Gemini、xAI Grok、Mistral、Groq、Together、Fireworks、DeepInfra、Novita、Cerebras、NVIDIA NIM、Baseten、HuggingFace Router、**Vercel AI Gateway**、**OpenCode Zen / Zen Go**、硅基流动、月之暗面 Kimi（国内/国际）、**Kimi Coding Plan**、智谱 GLM（国内）、**智谱 Coding Plan**、Z.ai GLM、**MiniMax Coding Plan（国际/国内）**、MiniMax（国内）、**阿里云百炼 Token Plan（国内/国际）**、阿里云百炼 Qwen、百度千帆、腾讯混元、火山方舟（豆包）、**小米 MiMo**、**Ant Ling**、**LongCat（美团）**、**StepFun Step Plan（国内/国际）**、**火山方舟 Agent Plan**、**ClinePass**、**Kilo Gateway**、**Nous Portal**、**Cline Free**、**ZenMux**、**Poe**、**302.AI**、**七牛云 AI**、**腾讯云 Coding Plan**、**ClinePass**、**DeepSeek**、**小米 MiMo Token Plan（国内/新加坡/美国）**。
 
 **火山方舟 Agent Plan** 预设写入 `https://ark.cn-beijing.volces.com/api/plan/v3`（**不是 `/api/v3`**——后者按量计费），协议走 Responses API（对应 OpenCode 的 `@ai-sdk/openai`；要更旧的 Chat API 就把协议改成 OpenAI 兼容）。收录 `ark-code-latest` 与 deepseek-v4.1-flash / glm-5.3 / kimi-k3 / deepseek-v4-pro / deepseek-v4-flash / kimi-k2.8-preview，后六者均标注 1M 上下文窗口。
+
+**免费渠道（Step 5 Preview 限免那几家）**：
+
+- **Kilo Gateway**：`stepfun/step-5-preview-free`（1M 上下文 / 64K 输出，思考档 low/medium/high，走 OpenRouter 式 `reasoning: {effort}` 线格式，因为 Step 5 在该端点**禁止关闭思考**，预设不提供 off 档）。网关对免费模型允许匿名调用（每 IP 200 次/小时），但 pi-ai 适配器没有凭据就不发请求，所以仍需到 app.kilo.ai → 个人资料底部复制免费 Key。
+- **Nous Portal**：`stepfun/step-5-preview:free`、`stepfun/step-3.7-flash:free` 等 8 个免费模型，端点 `inference-api.nousresearch.com/v1`，Key 从 portal.nousresearch.com 免费领取（无 Key 返回 x402/402）。
+- **OpenCode**：免费层级拿不到——`/zen/v1` 的 `*-free` 模型报 FreeTierError「只能在 OpenCode 应用内使用」，`/zen/go/v1` 网关则要求 **$10/月的 Go 订阅**（`step-5-preview-free` / `longcat-2.5-preview-free` 是 Go 内无限免费，而非无订阅可用）。已实测：Go 网关还会拒绝没有 `x-opencode-session` 头的请求，而 pi-ai 适配器不发这个头——`opencode-go` 预设已通过 profile 级 `headers` 自动注入，订阅用户直接启用即可。
+- **Cline Free**：`cline-free/*` 的 Step 5 **只对 Cline 产品面开放**（API 调用返回 403），拿不到；但 `:free` 系列（Poolside / NVIDIA / Cohere / Gemma / DOTS…）走 API 可用，且**不计入 ClinePass 周额度**，复用已有的 `CLINE_API_KEY` 即可启用。
+- **Puter**：未收录——其 OpenAI 兼容端点 `/puterai/openai/v1/*` 对免费账户返回 `402 subscription_required`，只有 puter.js 的 User-Pays 通道免费，DSH 用不上。
 
 关于内置：DSH 自带 DeepSeek 官方适配器（`llm-deepseek`），其目录里的 `stepfun` 指向普通付费端点 `api.stepfun.com/v1`——**Step Plan 订阅端点（`step_plan/v1`）没有内置条目，因此本插件提供该预设**；其余与本插件重合的服务商由 DSH 原生目录覆盖的那些默认折叠在「显示 DSH 已内置」开关后。已配置过的 Key（包括来自环境变量的）会被识别，留空输入框即可直接启用。
 

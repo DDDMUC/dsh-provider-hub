@@ -57,6 +57,18 @@ function compact(object) {
   return Object.fromEntries(Object.entries(object).filter(([, value]) => value !== undefined))
 }
 
+/**
+ * Sanitize preset-owned request headers the adapter merges into every call
+ * (e.g. OpenCode Go's required x-opencode-session). String names to string
+ * values only; the custom form has no header field, so drafts never carry one.
+ */
+function sanitizeHeaders(headers) {
+  if (headers === undefined || typeof headers !== 'object' || headers === null || Array.isArray(headers)) return undefined
+  const entries = Object.entries(headers).filter(([name, value]) => typeof name === 'string' && name !== '' && typeof value === 'string')
+  if (entries.length === 0) return undefined
+  return Object.fromEntries(entries)
+}
+
 /** Sanitize one model entry from a preset or the custom form. */
 export function sanitizeModel(entry) {
   if (!entry || typeof entry.id !== 'string' || entry.id.trim() === '') throw new Error('模型 ID 不能为空')
@@ -154,6 +166,7 @@ export function buildProfile(input) {
     api,
     baseURL,
     apiKeyEnv: env,
+    headers: sanitizeHeaders(preset?.headers),
     compat,
     models,
   })
