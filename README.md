@@ -2,9 +2,9 @@
 
 [English](#english) | 中文
 
-为 DSH 扩大可用的服务商：**选一个服务商，粘贴 API Key，点启用**——插件把官方 `llm-pi-ai` 路由与凭据一次性写好，立即生效、无需重启、无需手改 `settings.yaml`。
+为 DSH 扩大可用的服务商：**在官方 Models 页选一个服务商，粘贴 API Key，保存**——预设与 DSH 自带的 42 家并列在同一个下拉里，插件把官方 `llm-pi-ai` 路由与凭据一次性写好，立即生效、无需重启、无需手改 `settings.yaml`。
 
-内置 **53 家服务商预设**（OpenAI 兼容 / Anthropic Messages / OpenAI Responses 三种协议），覆盖国际与国内的普通 API 与 **订阅渠道**（百炼 Token Plan、智谱 Coding、Kimi Coding、MiniMax Coding Plan、小米 MiMo、OpenCode Zen、**火山方舟 Agent Plan** 等），另有「自定义服务商」入口可接入任意兼容端点；DSH 已内置的服务商默认折叠、不重复展示。
+内置 **54 家服务商预设**（OpenAI 兼容 / Anthropic Messages / OpenAI Responses 三种协议），覆盖国际与国内的普通 API 与 **订阅渠道**（百炼 Token Plan、智谱 Coding、Kimi Coding、MiniMax Coding Plan、小米 MiMo、OpenCode Zen、**火山方舟 Agent Plan** 等）；DSH 已内置的服务商不会重复出现在下拉里。
 
 ## 安装
 
@@ -16,33 +16,43 @@ dsh plugin --profile web add dsh-provider-hub
 dsh plugin --profile web add link:/path/to/dsh-provider-hub
 ```
 
-重启 `dsh web`，打开 **设置 → Models**，页面底部出现「服务商预设」卡片。
+重启 `dsh web`，打开 **设置 → Models**。
 
 ## 使用
 
-1. 点预设行右侧的「获取 Key」去对应控制台申请 Key（模型列表链接在其旁边）
-2. 把 Key 粘贴进输入框，点「启用」
-3. 状态徽标会显示 `运行中`（宿主已注册该路由）/ `已写入` / `缺 Key`
+1. 点 **添加模型提供商** → 方式选 **第三方模型提供商**
+2. 在 **提供商** 下拉里选你要的渠道（DSH 自带的 42 家之外，本插件的预设也在里面），点 **获取 Key** 去对应控制台申请
+3. 粘贴 API Key，**保存**
 4. 回到聊天输入框的模型选择器，新服务商的模型已经可选
 
-移除：点行内「移除」。**已保存的 Key 会保留在凭据服务里**，重新启用时不需要再粘贴；如需彻底清除，在官方 Models 页删除该路由后用凭据接口清除对应引用。
+模型清单、上下文/输出限额、思考档与逐模型兼容开关由插件在保存后补齐，不需要你手填；**已保存的 Key 会保留在凭据服务里**，重新添加时不需要再粘贴。
+
+> **行内 `Hub` 徽标**：来自本插件预设的路由，在官方 Models 页**各自的服务商行内**会带一个 `Hub` 标记（注入官方 `settings.models.provider-card` 逐行插槽）。官方那个「自定义」标签表达的是「这条路由不在 pi-ai 原生目录里」，与本插件没有对应关系，所以没有改它。
+>
+> 判定方式是**指纹而非标记**——DSH 不记录路由来源，因此要求：路由 ID 属于本目录的预设，且该路由的显示名等于预设名（官方编辑器会从本插件声明的目录条目预填这个显示名；只给原生路由填 Key 的情况保留路由 ID 作显示名，不会被误标）。代价：① 手动改过显示名的路由不再带标；② 若某预设日后从目录下线，其既有路由也不再带标，需自行核对 `cordis.patch.yml`。
 
 ## 自定义服务商
 
-「自定义服务商」支持任何 OpenAI 兼容端点（`openai-completions`）或 Anthropic Messages 端点（`anthropic-messages`）：填路由 ID、Base URL（到 `/v1` 为止）、协议、模型 ID（逗号/换行分隔）与 Key 即可。
+本插件不再自带自定义入口——DSH 官方就有：同一个「添加模型提供商」卡片里，方式选 **自定义模型 API** 即可接入任何 OpenAI / Anthropic 兼容端点（填 Provider ID、API 地址、协议、模型，还能点「获取可用模型」直接探测端点）。
 
 ## 工作原理
 
-写入全部走 DSH 官方服务，插件不直接碰配置文件：
+预设通过 **官方可配置服务商目录** 进入 DSH，写入则全部走官方服务，插件不直接碰配置文件：
 
-- `credentials.set(apiKeyEnv, key)` —— Key 存进凭据服务（与手写 profile 用的是同一个引用）
-- `settings.mutate('llm-pi-ai', [set providers.<route>], revision)` —— 写入官方 pi-ai 命名空间的用户层，官方 schema 校验、适配器热注册
+- `llm.registerConfigurableProviders(entries)` —— 把预设声明成「休眠提供商」，于是它们出现在官方那个提供商下拉里（DSH 自带的那 42 家由 `dsh-llm-pi-ai` 用同一个接口声明）；已被别人声明的路由不会被重复声明，**同一家厂商换了个路由 ID 的也不重复**（预设 `gemini` → 原生 `google`、`opencode-zen` → 原生 `opencode`，按目录里的别名折叠）
+- `settings.mutate('llm-pi-ai', [set providers.<route>], revision)` —— 你保存之后，把预设的模型清单 / 协议 / `compat` / `headers`（例如 OpenCode Go 必需的 `x-opencode-session`）补进该路由的 profile，官方 schema 校验、适配器热注册
+- `credentials.set(apiKeyEnv, key)` —— Key 由官方编辑器写进凭据服务（与手写 profile 用的是同一个引用）
 
-`core/` 目录是纯 JS（无 Node 内建、无 DSH 依赖、无 I/O）：服务商目录、profile 构建与校验。宿主半、浏览器半（本插件）、以及后续的桌面端外壳共用同一份核心代码。
+两条边界值得知道：
+
+- **目录条目带不了模型**：DSH 的目录条目只有 `provider / displayName / settingsNs / settingsPath / defaultBaseURL / baseURLEnv / nativeAuth`，没有 `models`，所以策展必须发生在「保存之后」这一步，而不是目录里。
+- **策展只做一次**：每路由记一份指纹在 `~/.provider-hub/directory.json`，此后你对手上这条 profile 的任何编辑（比如裁短模型清单）都不会被插件改回去；预设自身形状变了才会重新策展。
+
+`core/` 目录是纯 JS（无 Node 内建、无 DSH 依赖、无 I/O）：服务商目录、profile 构建与校验、目录计划。宿主半、浏览器半（本插件）、以及后续的桌面端外壳共用同一份核心代码。
 
 ## 预设清单
 
-OpenAI、OpenRouter、Anthropic、Google Gemini、xAI Grok、Mistral、Groq、Together、Fireworks、DeepInfra、Novita、Cerebras、NVIDIA NIM、Baseten、HuggingFace Router、**Vercel AI Gateway**、**OpenCode Zen / Zen Go**、硅基流动、月之暗面 Kimi（国内/国际）、**Kimi Coding Plan**、智谱 GLM（国内）、**智谱 Coding Plan**、Z.ai GLM、**MiniMax Coding Plan（国际/国内）**、MiniMax（国内）、**阿里云百炼 Token Plan（国内/国际）**、阿里云百炼 Qwen、百度千帆、腾讯混元、火山方舟（豆包）、**小米 MiMo**、**Ant Ling**、**LongCat（美团）**、**StepFun Step Plan（国内/国际）**、**火山方舟 Agent Plan**、**ClinePass**、**Kilo Gateway**、**Nous Portal**、**Cline Free**、**ZenMux**、**Poe**、**302.AI**、**七牛云 AI**、**腾讯云 Coding Plan**、**ClinePass**、**DeepSeek**、**小米 MiMo Token Plan（国内/新加坡/美国）**。
+OpenAI、OpenRouter、Anthropic、Google Gemini、xAI Grok、Mistral、Groq、Together、Fireworks、DeepInfra、Novita、Cerebras、NVIDIA NIM、Baseten、HuggingFace Router、**Vercel AI Gateway**、**OpenCode Zen / Zen Go**、硅基流动、月之暗面 Kimi（国内/国际）、**Kimi Coding Plan**、智谱 GLM（国内）、**智谱 Coding Plan**、Z.ai GLM、**MiniMax Coding Plan（国际/国内）**、MiniMax（国内）、**阿里云百炼 Token Plan（国内/国际）**、阿里云百炼 Qwen、百度千帆、腾讯混元、火山方舟（豆包）、**小米 MiMo**、**Ant Ling**、**LongCat（美团）**、**StepFun Step Plan（国内/国际）**、**火山方舟 Agent Plan**、**ClinePass**、**Command Code**、**Kilo Gateway**、**Nous Portal**、**Cline Free**、**ZenMux**、**Poe**、**302.AI**、**七牛云 AI**、**腾讯云 Coding Plan**、**ClinePass**、**DeepSeek**、**小米 MiMo Token Plan（国内/新加坡/美国）**。
 
 **火山方舟 Agent Plan** 预设写入 `https://ark.cn-beijing.volces.com/api/plan/v3`（**不是 `/api/v3`**——后者按量计费），协议走 Responses API（对应 OpenCode 的 `@ai-sdk/openai`；要更旧的 Chat API 就把协议改成 OpenAI 兼容）。收录 `ark-code-latest` 与 deepseek-v4.1-flash / glm-5.3 / kimi-k3 / deepseek-v4-pro / deepseek-v4-flash / kimi-k2.8-preview，后六者均标注 1M 上下文窗口。
 
@@ -113,7 +123,7 @@ echo -e "3\nsk-ant-xxx\ny" | provider-hub-connect            # 也可管道喂�
 
 - **WorkBuddy**：写入 models.json（之后在应用内也能改 Key）
 - **OpenCode**：定义进配置、Key 进 auth.json（与官方 /connect 同一存储，应用内可查看/断开）
-- **DSH**：打印应用内一步操作（设置页卡片贴 Key 即启用）
+- **DSH**：打印应用内的添加路径（官方「添加模型提供商 → 第三方模型提供商」下拉里选该渠道，贴 Key 保存）
 - `--yes` 跳过写入确认
 
 ## cc-switch 适配
@@ -179,9 +189,9 @@ node tools/patch-chatgpt.mjs --restore
 
 ## English
 
-Expand the providers DSH can use: **pick a provider, paste the API key, press Enable**. The plugin writes the official `llm-pi-ai` route and its credential in one step - effective immediately, no restart, no hand-editing `settings.yaml`.
+Expand the providers DSH can use: **pick a provider in the official Models page, paste the API key, save**. The presets sit in the same select as the 42 providers DSH ships, and the plugin writes the official `llm-pi-ai` route and its credential in one step - effective immediately, no restart, no hand-editing `settings.yaml`.
 
-40 built-in presets (OpenAI-compatible, Anthropic Messages and OpenAI Responses protocols) plus a custom-endpoint form for any compatible gateway. Presets your target app already ships natively are collapsed by default, never deleted.
+54 built-in presets (OpenAI-compatible, Anthropic Messages and OpenAI Responses protocols), covering plain APIs and **subscription channels** (Alibaba Token Plan, Zhipu Coding, Kimi Coding, MiniMax Coding Plan, Xiaomi MiMo, OpenCode Zen, Volcengine Agent Plan, Command Code, ...). Providers DSH already ships are never repeated in that select.
 
 ### Install
 
@@ -189,17 +199,19 @@ Expand the providers DSH can use: **pick a provider, paste the API key, press En
 dsh plugin --profile web add dsh-provider-hub
 ```
 
-Restart `dsh web`, open **Settings → Models**; the "Provider presets" card is at the bottom.
+Restart `dsh web`, open **Settings → Models**, and use **Add model provider**.
 
 ### Usage
 
-Paste the key (each row links to the console and the model list), press **Enable**, then pick the provider's models in the composer's model selector. **Remove** takes the route offline but keeps the stored key, so re-enabling never needs the key again.
+Pick **Third-party model provider**, choose the channel in the **Provider** select (the plugin's presets are listed next to DSH's own), paste the API key, and save. The curated model list, context and output limits, reasoning levels and per-model compat switches are filled in for you; pick the provider's models in the composer's model selector. The stored key stays in the credentials service, so re-adding a route never needs it again.
 
 ### How it works
 
-All writes go through official services - the plugin never touches config files directly: `credentials.set(apiKeyEnv, key)` stores the key, and `settings.mutate('llm-pi-ai', [set providers.<route>], revision)` writes the user layer of the official pi-ai namespace (schema-validated, hot-registered).
+All writes go through official services - the plugin never touches config files directly: `llm.registerConfigurableProviders(entries)` declares the presets in the configurable-provider directory the page's own select reads (the same seam `dsh-llm-pi-ai` uses for its 42 providers), `settings.mutate('llm-pi-ai', [set providers.<route>], revision)` writes the curated profile into the user layer of the official pi-ai namespace once the row is saved (schema-validated, hot-registered), and `credentials.set(apiKeyEnv, key)` stores the key.
 
-`core/` is pure JS (no Node built-ins, no DSH imports, no I/O): the provider catalog plus profile building and validation, shared by the host half, this plugin's browser half, and any future desktop shell.
+Two limits are worth knowing. A directory entry carries no model catalog - only `provider / displayName / settingsNs / settingsPath / defaultBaseURL / baseURLEnv / nativeAuth` - so curation happens after adoption, not in the directory. And curation is once per preset version, recorded per route in `~/.provider-hub/directory.json`, so an edit you make to that profile afterwards is never reverted.
+
+`core/` is pure JS (no Node built-ins, no DSH imports, no I/O): the provider catalog plus profile building, validation and the directory plan, shared by the host half, this plugin's browser half, and any future desktop shell.
 
 The same catalog ships two CLIs: `provider-hub-workbuddy` writes WorkBuddy's local `models.json`, `provider-hub-opencode` writes OpenCode's config. The OpenCode CLI writes provider **definitions only** - keys land in OpenCode's own `auth.json` (the file its in-app 连接提供商 flow uses), so custom providers behave like natively supported ones and stay manageable from the app. Both accept `--key-from-dsh <REF>` to reuse a key already stored in DSH.
 

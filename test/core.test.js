@@ -172,3 +172,23 @@ test('coverage: accepts any iterable of native ids (Set or array)', () => {
   assert.deepEqual(asSet.covered, [{ id: 'openai', as: 'openai' }])
   assert.deepEqual(coverageOf(presets, undefined).visible.map((p) => p), ['openai', 'cline-pass', 'volcengine-agent-plan'])
 })
+
+test('catalog: Command Code carries the whole GOAT plan catalog', () => {
+  const preset = findPreset('commandcode')
+  assert.equal(preset.name, 'Command Code')
+  assert.equal(preset.baseURL, 'https://api.commandcode.ai/provider/v1')
+  assert.equal(preset.api, 'openai-completions')
+  assert.equal(preset.env, 'COMMANDCODE_API_KEY')
+  // The one switch the provider needs beyond the OpenAI-compatible defaults.
+  assert.deepEqual(preset.compat, { supportsDeveloperRole: true })
+  assert.equal(preset.models.length, 58)
+  assert.equal(new Set(preset.models.map((model) => model.id)).size, 58)
+  assert.ok(preset.models.some((model) => model.id === 'gpt-6-luna'))
+  assert.ok(preset.models.some((model) => model.id === 'MiniMaxAI/MiniMax-M2.5'))
+  // `off` stays a string key: the settings document round-trips `off: null`.
+  assert.equal(preset.models[0].reasoningEfforts.off, null)
+  // The recovered catalog must build a profile the adapter accepts.
+  const profile = buildProfile({ presetId: 'commandcode' })
+  assert.equal(profile.models.length, 58)
+  assert.equal(profile.apiKeyEnv, 'COMMANDCODE_API_KEY')
+})

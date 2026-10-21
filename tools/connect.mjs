@@ -137,7 +137,7 @@ async function main() {
         console.log(`[OpenCode] ✗ ${String(error.stderr || error.message).split('\n')[0]}`)
       }
     } else if (app.id === 'dsh') {
-      console.log(`[DSH] 请在应用内完成（一步）：设置 → Models →「服务商预设」卡片 → 找到 ${preset.name} → 粘贴 Key → 启用`)
+      console.log(`[DSH] 请在应用内完成：设置 → Models → 添加模型提供商 → 第三方模型提供商 → 提供商下拉选「${preset.name}」→ 粘贴 Key → 保存（模型清单由插件在保存后补齐）`)
     } else if (app.id === 'cc-switch') {
       const { execFileSync } = await import('node:child_process')
       try {

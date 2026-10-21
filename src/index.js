@@ -1,10 +1,17 @@
 // dsh-provider-hub - host half.
 //
-// Three loopback-only JSON routes the browser half calls:
+// The catalog reaches DSH's own Models page instead of a panel of its own: the
+// presets are declared as configurable providers, so they appear in the official
+// **Third-party model provider** select next to the ones DSH ships, and an
+// adopted preset route is curated with the models, compat and headers a
+// directory entry cannot carry. See `syncDirectory` below.
+//
+// One loopback-only JSON route is left for the browser half:
 //
 //   GET  /dsh-provider-hub/state    -> presets + configured routes + key status
-//   POST /dsh-provider-hub/enable   -> { presetId } or { route, displayName?, baseURL, api, modelIds }, plus { key }
-//   POST /dsh-provider-hub/remove   -> { route, removeKey? }
+//
+// `POST /dsh-provider-hub/enable` and `POST /dsh-provider-hub/remove` stay for
+// scripted use (they are what the curated write does, with a key attached).
 //
 // Every write goes through the official services, so nothing here touches
 // settings.yaml or .credentials.yaml directly:
@@ -13,15 +20,22 @@
 //     credentials service (the same ref a hand-written profile would use);
 //   * `settings.mutate('llm-pi-ai', [set providers.<route>], revision)` writes
 //     the user layer of the official pi-ai namespace, which validates the
-//     profile and re-registers the route live (no restart, no YAML editing).
+//     profile and re-registers the route live (no restart, no YAML editing);
+//   * `llm.registerConfigurableProviders(entries)` declares the dormant presets
+//     in the directory that page reads.
 //
 // The adapter this plugin feeds is `@deepseek-ai/dsh-llm-pi-ai`; the profile
 // shape is built and validated by ../core/profile.js, shared with any other
 // shell that consumes the same core.
 
-import { PRESETS, customEnvName, findPreset } from '../core/providers.js'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { dirname, join } from 'node:path'
+
+import { PRESETS, customEnvName } from '../core/providers.js'
 import { buildProfile, routeOf } from '../core/profile.js'
 import { coverageOf } from '../core/coverage.js'
+import { curatedProfile, planSync, presetFingerprint, sameProfile } from '../core/directory.js'
 
 export const name = 'dsh-provider-hub'
 
@@ -285,6 +299,157 @@ async function remove(ctx, body) {
   return { route }
 }
 
+// --- configurable-provider directory -----------------------------------------
+
+/**
+ * What the catalog already curated, keyed by route.
+ *
+ * The journal is what keeps curation a one-time write per preset version: a
+ * model list the user trims afterwards is never reverted, while a preset whose
+ * own shape changes re-curates. Losing the file costs nothing worse than one
+ * extra pass.
+ */
+function journalPath() {
+  return join(homedir(), '.provider-hub', 'directory.json')
+}
+
+function readJournal() {
+  try {
+    const parsed = JSON.parse(readFileSync(journalPath(), 'utf8'))
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function writeJournal(journal) {
+  try {
+    const file = journalPath()
+    mkdirSync(dirname(file), { recursive: true })
+    writeFileSync(file, `${JSON.stringify(journal, null, 2)}\n`)
+  } catch {
+    // Best effort: without the journal the next pass simply curates again.
+  }
+}
+
+function sameRouteSet(held, entries) {
+  if (held.size !== entries.length) return false
+  return entries.every((entry) => held.has(entry.provider))
+}
+
+/**
+ * One directory pass.
+ *
+ * Declares every preset DSH does not already offer, withdraws the ones just
+ * adopted, then gives an adopted preset route the curated shape a directory
+ * entry cannot carry (a directory entry has no model catalog - see
+ * ../core/directory.js).
+ *
+ * The order matters: pi-ai recomputes its own directory from the profiles and
+ * refuses a route another registration still declares, so an adopted route has
+ * to leave this registration before pi-ai's next pass. That is why the listener
+ * runs prepended, and why this pass is called synchronously from it.
+ */
+async function syncDirectory(ctx, state) {
+  const { settings, llm } = services(ctx)
+  if (!settings || !llm || typeof llm.registerConfigurableProviders !== 'function') return
+  const descriptor = piAiDescriptor(settings)
+  if (!descriptor) return
+
+  const profiles = userProviders(descriptor)
+  const configured = new Set(Object.keys(profiles))
+  // What was already configured the first time this plugin looked. A route that
+  // predates it and carries models is a profile someone shaped by hand, not a
+  // draft to fill in, so curation leaves it alone.
+  if (state.bootConfigured === undefined) state.bootConfigured = new Set(configured)
+
+  const readDirectory = () => {
+    const listed = llm.listConfigurableProviders?.() ?? []
+    // Routes another registration owns. `declared: false` marks the ones the
+    // installed pi-ai catalog ships; its own declared routes carry `true`, and
+    // this plugin's entries carry neither. This plugin's own entries are left
+    // out, or a preset would look covered by itself and be withdrawn.
+    const foreign = new Set(listed.map((entry) => entry.provider).filter((provider) => !state.held.has(provider)))
+    return {
+      foreign,
+      // Presets the app already serves under another route id (`gemini` is
+      // `google`, `opencode-zen` is `opencode`): declaring those would offer the
+      // same vendor twice in the select.
+      covered: new Set(coverageOf(PRESETS, foreign).covered.map((entry) => entry.id)),
+      catalog: new Set(listed.filter((entry) => entry.declared === false).map((entry) => entry.provider)),
+    }
+  }
+
+  const journal = readJournal()
+  const plan = (taken) =>
+    planSync({
+      presets: PRESETS,
+      foreign: taken.foreign,
+      covered: taken.covered,
+      catalog: taken.catalog,
+      configured,
+      profiles,
+      preExisting: state.bootConfigured,
+      journal,
+      settingsNs: PI_AI_NS,
+    })
+  const { entries, enrich, respected } = plan(readDirectory())
+
+  const applyEntries = (next) => {
+    if (state.handle === undefined) {
+      // A registration must declare at least one provider; with none to declare
+      // there is nothing to withdraw either.
+      if (next.length === 0) return
+      state.handle = llm.registerConfigurableProviders(next)
+    } else {
+      state.handle.replace(next)
+    }
+    state.held = new Set(next.map((entry) => entry.provider))
+  }
+
+  const needed = state.handle === undefined ? entries.length > 0 : !sameRouteSet(state.held, entries)
+  if (needed) {
+    try {
+      applyEntries(entries)
+    } catch (error) {
+      // A pass that raced pi-ai's own directory update read a stale foreign set.
+      // Recompute against the directory as it stands now and retry once; a
+      // second failure is left to the next event.
+      const retry = plan(readDirectory())
+      if (!sameRouteSet(state.held, retry.entries)) applyEntries(retry.entries)
+    }
+  }
+
+  // Record the routes curation deliberately leaves alone, so a later pass does
+  // not reconsider them.
+  let recorded = false
+  for (const preset of respected) {
+    journal[preset.id] = { fingerprint: presetFingerprint(preset), curatedAt: null, respected: true }
+    recorded = true
+  }
+  if (recorded) writeJournal(journal)
+
+  for (const preset of enrich) {
+    // Re-read per route: an earlier write in this loop moves the revision.
+    const current = piAiDescriptor(settings)
+    const existing = userProviders(current)[preset.id]
+    if (!existing || typeof existing !== 'object' || Array.isArray(existing)) continue
+    const profile = curatedProfile(preset, existing)
+    try {
+      if (!sameProfile(existing, profile)) {
+        await settings.mutate(PI_AI_NS, [{ op: 'set', path: ['providers', preset.id], value: profile }], current.revision)
+      }
+      journal[preset.id] = { fingerprint: presetFingerprint(preset), curatedAt: new Date().toISOString() }
+      writeJournal(journal)
+    } catch (error) {
+      // A conflicting revision retries on the next pass. The route keeps
+      // serving meanwhile; it just carries what the official editor wrote.
+      const reason = String((error && error.message) || error)
+      if (ctx.logger && typeof ctx.logger.warn === 'function') ctx.logger.warn(`dsh-provider-hub: could not curate "${preset.id}": ${reason}`)
+    }
+  }
+}
+
 // --- plugin ------------------------------------------------------------------
 
 export function apply(ctx) {
@@ -351,6 +516,22 @@ export function apply(ctx) {
   } else {
     ctx.inject(['webServer'], (sub) => registerRoutes(sub.webServer, sub))
   }
+
+  // The presets reach DSH's own Models page through the configurable-provider
+  // directory, so this plugin owns no panel of its own.
+  const directory = { handle: undefined, held: new Set() }
+  ctx.inject(['settings', 'llm'], (sub) => {
+    const run = () => {
+      syncDirectory(sub, directory).catch((error) => {
+        const reason = String((error && error.message) || error)
+        if (sub.logger && typeof sub.logger.warn === 'function') sub.logger.warn(`dsh-provider-hub: directory sync failed: ${reason}`)
+      })
+    }
+    run()
+    // Prepended: this pass has to withdraw an adopted route before pi-ai
+    // recomputes its own directory from the profiles.
+    sub.on('loader/volatile-update', run, { prepend: true })
+  })
 }
 
 export { customEnvName }
