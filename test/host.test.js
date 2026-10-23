@@ -1,19 +1,20 @@
-// dsh-provider-hub - host-half directory integration (node:test, fake services).
+// dsh-provider-hub - host-half integration (node:test, fake services).
 //
-// Exercises the real `apply()` wiring against stand-in `settings` and `llm`
-// services: the presets DSH does not ship must reach the configurable-provider
-// directory, an adopted preset route must leave that directory before pi-ai's
-// own pass runs, and the curated models/compat/headers must land in its profile
-// exactly once - without touching a route the installed catalog owns or a
-// profile the user shaped before this plugin ever looked.
+// Exercises the real `apply()` wiring against stand-in `settings`, `llm` and
+// `webServer` services: the presets DSH does not ship must reach the
+// configurable-provider directory, an adopted preset route must leave that
+// directory before pi-ai's own pass runs, its curated models/compat/headers must
+// land in the profile exactly once - and hiding a route must take it out of the
+// model picker while keeping everything needed to put it back.
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { EventEmitter } from 'node:events'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-// The journal lives under the home directory; keep the suite out of the real one.
+// The journals live under the home directory; keep the suite out of the real one.
 process.env.HOME = mkdtempSync(join(tmpdir(), 'provider-hub-test-'))
 
 const { apply } = await import('../src/index.js')
@@ -25,27 +26,68 @@ const NATIVE = ['openai', 'anthropic', 'deepseek', 'opencode', 'opencode-go', 'x
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
 
+/** A loopback request that satisfies the plugin's guard, with its body preloaded. */
+function request({ method = 'POST', body } = {}) {
+  const req = new EventEmitter()
+  req.method = method
+  req.url = '/'
+  req.headers = { host: '127.0.0.1:3080' }
+  req.socket = { remoteAddress: '127.0.0.1' }
+  const payload = body === undefined ? '' : JSON.stringify(body)
+  process.nextTick(() => {
+    if (payload !== '') req.emit('data', payload)
+    req.emit('end')
+  })
+  return req
+}
+
+function response() {
+  const res = { status: 0, payload: null }
+  res.writeHead = (status) => {
+    res.status = status
+  }
+  res.end = (payload) => {
+    res.payload = payload
+  }
+  return res
+}
+
 function harness(initialProviders = {}) {
-  const user = { providers: { ...initialProviders } }
-  let revision = 1
+  const users = { 'llm-pi-ai': { providers: { ...initialProviders } }, 'llm-deepseek': {} }
+  const revisions = { 'llm-pi-ai': 1, 'llm-deepseek': 1 }
   // `declared: false` is how the runtime marks a route the installed catalog
   // ships; this plugin's own entries carry no `declared` at all.
-  const directory = new Map(NATIVE.map((provider) => [provider, { provider, declared: false }]))
-  const calls = { registered: [], replaced: [], mutated: [] }
+  const directory = new Map(
+    NATIVE.map((provider) => [provider, { provider, declared: false, settingsNs: 'llm-pi-ai', settingsPath: ['providers', provider] }]),
+  )
+  // DeepSeek's API-key route: its own plugin registers the adapter
+  // unconditionally and declares the namespace root as its settings path.
+  directory.set('deepseek-official', { provider: 'deepseek-official', displayName: 'DeepSeek', declared: false, settingsNs: 'llm-deepseek', settingsPath: [] })
+  const calls = { registered: [], replaced: [], mutated: [], unset: [] }
   let held = new Set()
 
   const settings = {
-    describe: () => [{ ns: 'llm-pi-ai', revision, user }],
+    describe: () => Object.entries(users).map(([ns, user]) => ({ ns, revision: revisions[ns], user })),
     mutate: async (ns, ops, expected) => {
-      assert.equal(ns, 'llm-pi-ai')
-      assert.equal(expected, revision)
+      assert.ok(Object.hasOwn(users, ns), `unknown namespace ${ns}`)
+      assert.equal(expected, revisions[ns])
       for (const op of ops) {
+        let parent = users[ns]
+        for (const key of op.path.slice(0, -1)) {
+          if (parent[key] === null || typeof parent[key] !== 'object') parent[key] = {}
+          parent = parent[key]
+        }
+        const last = op.path[op.path.length - 1]
+        if (op.op === 'unset') {
+          delete parent[last]
+          calls.unset.push(`${ns}:${op.path.join('.')}`)
+          continue
+        }
         assert.equal(op.op, 'set')
-        assert.deepEqual(op.path.slice(0, 1), ['providers'])
-        user.providers[op.path[1]] = op.value
-        calls.mutated.push({ route: op.path[1], profile: op.value })
+        parent[last] = op.value
+        calls.mutated.push({ ns, path: op.path, route: op.path[1] ?? op.path[0], value: op.value, profile: op.value })
       }
-      revision += 1
+      revisions[ns] += 1
     },
   }
 
@@ -75,8 +117,16 @@ function harness(initialProviders = {}) {
     },
   }
 
+  const handlers = new Map()
+  const webServer = {
+    register: ({ path, handler }) => {
+      handlers.set(path, handler)
+      return () => {}
+    },
+  }
+
   const listeners = new Map()
-  const services = { settings, llm, credentials: undefined, webServer: undefined }
+  const services = { settings, llm, credentials: undefined, webServer }
   const sub = {
     get: (name) => services[name],
     logger: { warn() {} },
@@ -92,18 +142,26 @@ function harness(initialProviders = {}) {
     logger: { warn() {} },
     effect: (fn) => fn(),
     on: () => () => {},
-    inject: (deps, callback) => {
-      // The web-server injection is optional and unexercised here.
-      if (deps.includes('webServer')) return
-      callback(sub)
-    },
+    inject: (_deps, callback) => callback(sub),
+  }
+
+  const drive = async (path, { method, body }) => {
+    const handler = handlers.get(`/dsh-provider-hub/${path}`)
+    assert.ok(handler, `route ${path} is registered`)
+    const res = response()
+    await handler(request({ method, body }), res)
+    return { status: res.status, json: res.payload === null ? null : JSON.parse(res.payload) }
   }
 
   return {
     ctx,
     calls,
-    user,
+    users,
+    user: users['llm-pi-ai'],
     directory,
+    /** Drive one registered loopback route exactly as the browser half does. */
+    post: (path, body) => drive(path, { method: 'POST', body }),
+    get: (path) => drive(path, { method: 'GET' }),
     emit: async (event) => {
       for (const listener of listeners.get(event) ?? []) listener()
       await settle()
@@ -197,6 +255,125 @@ test('host: a route that is not a preset is never curated', async () => {
   h.user.providers['my-gateway'] = { apiKeyEnv: 'MY_GATEWAY_API_KEY', api: 'openai-completions' }
   await h.emit('loader/volatile-update')
   assert.deepEqual(h.calls.mutated, [])
+})
+
+test('host: hide takes a route out of the picker and show puts it back unchanged', async () => {
+  const profile = { apiKeyEnv: 'CLINE_API_KEY', displayName: 'ClinePass', api: 'openai-completions', models: [{ id: 'kimi-k3', name: 'Kimi K3' }] }
+  const h = harness({ 'cline-pass': profile })
+  apply(h.ctx)
+  await settle()
+
+  const before = await h.get('state')
+  assert.deepEqual(before.json.hidden, {}, 'nothing hidden yet')
+
+  const hidden = await h.post('hide', { route: 'cline-pass' })
+  assert.equal(hidden.status, 200)
+  assert.equal(hidden.json.ok, true)
+  // The user layer loses the profile, so `llm.listProviders()` drops the route
+  // and the composer stops listing it. The credential is never touched.
+  assert.equal(Object.hasOwn(h.user.providers, 'cline-pass'), false)
+  assert.deepEqual(h.calls.unset, ['llm-pi-ai:providers.cline-pass'])
+
+  const mid = await h.get('state')
+  assert.deepEqual(Object.keys(mid.json.hidden), ['cline-pass'])
+  assert.equal(mid.json.hidden['cline-pass'].displayName, 'ClinePass')
+  assert.equal(mid.json.hidden['cline-pass'].modelCount, 1)
+
+  const shown = await h.post('show', { route: 'cline-pass' })
+  assert.equal(shown.status, 200)
+  assert.deepEqual(h.user.providers['cline-pass'], profile, 'restored byte for byte')
+
+  const after = await h.get('state')
+  assert.deepEqual(after.json.hidden, {}, 'the stash is cleared once shown')
+})
+
+test('host: hide refuses a route that is not configured', async () => {
+  const h = harness()
+  apply(h.ctx)
+  await settle()
+
+  const res = await h.post('hide', { route: 'nous-portal' })
+  assert.equal(res.status, 404)
+  assert.equal(res.json.code, 'not-configured')
+})
+
+test('host: hiding a catalog route empties its model catalog and keeps its card', async () => {
+  const h = harness()
+  apply(h.ctx)
+  await settle()
+
+  // The route's own plugin registers the adapter unconditionally, so dropping a
+  // settings value cannot unregister it - emptying the catalog is the lever.
+  const hidden = await h.post('hide', { route: 'deepseek-official' })
+  assert.equal(hidden.status, 200)
+  assert.equal(hidden.json.mode, 'catalog')
+  assert.deepEqual(h.users['llm-deepseek'].models, [])
+  assert.deepEqual(h.calls.mutated.at(-1).path, ['models'], 'written at the namespace root')
+
+  const mid = await h.get('state')
+  assert.equal(mid.json.hidden['deepseek-official'].mode, 'catalog')
+  // A catalog route's name lives only in its directory entry, so the footer
+  // shows the product name rather than the route id.
+  assert.equal(mid.json.hidden['deepseek-official'].displayName, 'DeepSeek')
+
+  const shown = await h.post('show', { route: 'deepseek-official' })
+  assert.equal(shown.status, 200)
+  // Nothing had overridden the catalog, so dropping the empty list restores the
+  // namespace's own default instead of pinning an empty one.
+  assert.equal(Object.hasOwn(h.users['llm-deepseek'], 'models'), false)
+  assert.deepEqual(h.calls.unset, ['llm-deepseek:models'])
+  assert.deepEqual((await h.get('state')).json.hidden, {})
+})
+
+test('host: a catalog route restores the catalog the user had overridden', async () => {
+  const mine = [{ id: 'deepseek-flash', name: 'Mine' }]
+  const h = harness()
+  h.users['llm-deepseek'].models = mine
+  apply(h.ctx)
+  await settle()
+
+  await h.post('hide', { route: 'deepseek-official' })
+  assert.deepEqual(h.users['llm-deepseek'].models, [])
+
+  await h.post('show', { route: 'deepseek-official' })
+  assert.deepEqual(h.users['llm-deepseek'].models, mine, 'the overridden catalog comes back as it was')
+})
+
+test('host: state reports which lever each route hides with', async () => {
+  const h = harness({ 'cline-pass': { apiKeyEnv: 'CLINE_API_KEY', displayName: 'ClinePass', models: [] } })
+  apply(h.ctx)
+  await settle()
+
+  const state = await h.get('state')
+  assert.equal(state.json.routes['cline-pass'].hideMode, 'profile')
+  // A catalog route has no profile, so it is absent from `routes` and the client
+  // reads the mode from the directory-wide map instead.
+  assert.equal(state.json.routes['deepseek-official'], undefined)
+  assert.equal(state.json.hideModes['deepseek-official'], 'catalog')
+  assert.equal(state.json.hideModes['cline-pass'], 'profile')
+})
+
+test('host: show refuses a route that is not hidden', async () => {
+  const h = harness({ 'cline-pass': { apiKeyEnv: 'CLINE_API_KEY' } })
+  apply(h.ctx)
+  await settle()
+
+  const res = await h.post('show', { route: 'cline-pass' })
+  assert.equal(res.status, 404)
+  assert.equal(res.json.code, 'not-hidden')
+})
+
+test('host: a hidden preset is declared as dormant again, so the dropdown offers it', async () => {
+  const h = harness({ 'nous-portal': { apiKeyEnv: 'NOUS_API_KEY', displayName: 'Nous Portal', models: [] } })
+  apply(h.ctx)
+  await settle()
+
+  await h.post('hide', { route: 'nous-portal' })
+  await h.emit('loader/volatile-update')
+
+  const declared = h.calls.replaced.at(-1) ?? h.calls.registered.at(-1)
+  assert.equal(declared.some((entry) => entry.provider === 'nous-portal'), true, 'hiding returns it to the directory')
+  assert.equal(h.directory.has('nous-portal'), true)
 })
 
 test('host: a route the catalog already owns is never declared, even when configured', async () => {

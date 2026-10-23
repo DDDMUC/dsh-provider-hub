@@ -6,12 +6,13 @@
 // adopted preset route is curated with the models, compat and headers a
 // directory entry cannot carry. See `syncDirectory` below.
 //
-// One loopback-only JSON route is left for the browser half:
+// One loopback-only JSON route is what the browser half needs most of the time:
 //
-//   GET  /dsh-provider-hub/state    -> presets + configured routes + key status
+//   GET  /dsh-provider-hub/state    -> presets + configured routes + key status + hidden routes
 //
-// `POST /dsh-provider-hub/enable` and `POST /dsh-provider-hub/remove` stay for
-// scripted use (they are what the curated write does, with a key attached).
+// `POST /dsh-provider-hub/enable`, `/remove`, `/hide` and `/show` stay for the
+// browser half's row controls and for scripted use: `/hide` takes a route out of
+// the model picker while keeping its profile and key, `/show` puts it back.
 //
 // Every write goes through the official services, so nothing here touches
 // settings.yaml or .credentials.yaml directly:
@@ -128,14 +129,54 @@ function services(ctx) {
   }
 }
 
-function piAiDescriptor(settings) {
+function namespaceDescriptor(settings, ns) {
   const descriptors = settings?.describe?.() ?? []
-  return descriptors.find((descriptor) => descriptor.ns === PI_AI_NS)
+  return descriptors.find((descriptor) => descriptor.ns === ns)
+}
+
+function piAiDescriptor(settings) {
+  return namespaceDescriptor(settings, PI_AI_NS)
 }
 
 function userProviders(descriptor) {
   const providers = descriptor?.user && typeof descriptor.user === 'object' ? descriptor.user.providers : undefined
   return providers && typeof providers === 'object' ? providers : {}
+}
+
+/** The value at one settings path inside a namespace's user layer. */
+function readPath(root, path) {
+  let value = root
+  for (const key of path) {
+    if (value === null || typeof value !== 'object') return undefined
+    value = value[key]
+  }
+  return value
+}
+
+/**
+ * Where a route's configuration lives, as the configurable-provider directory
+ * reports it, and which lever removes it from the composer's model picker.
+ *
+ *   * `profile` - the route is a value under `providers.<route>`; dropping that
+ *     value unregisters the route, so its card and its picker group both go.
+ *   * `catalog` - the route's own plugin registers the adapter unconditionally
+ *     (DeepSeek's `deepseek-official`), so no settings value can unregister it.
+ *     Emptying the model catalog is what removes it: the picker drops a provider
+ *     group that has no models.
+ *
+ * @returns `{ ns, path, mode }`, or `undefined` when the route is not declared.
+ */
+function routeTarget(llm, route) {
+  const entry = (llm?.listConfigurableProviders?.() ?? []).find((candidate) => candidate.provider === route)
+  if (entry && typeof entry.settingsNs === 'string' && entry.settingsNs !== '') {
+    const path = Array.isArray(entry.settingsPath) ? entry.settingsPath : []
+    return { ns: entry.settingsNs, path, mode: path.length === 0 ? 'catalog' : 'profile' }
+  }
+  // Not in the directory yet - pi-ai recomputes its entries from the profiles on
+  // its own pass, and a hand-declared route may not be there at all. The pi-ai
+  // user layer is still where such a route lives; whether it actually carries a
+  // profile is the caller's check.
+  return { ns: PI_AI_NS, path: ['providers', route], mode: 'profile' }
 }
 
 function isConflict(error) {
@@ -158,7 +199,8 @@ async function stateOf(ctx) {
   // Per-app de-duplication: presets the target app already covers natively
   // (its built-in pi-ai catalog) stay in the catalog but are marked so the UI
   // can hide them behind a reveal toggle. Nothing is deleted.
-  const nativeIds = (llm?.listConfigurableProviders?.() ?? []).map((entry) => entry.provider)
+  const listed = llm?.listConfigurableProviders?.() ?? []
+  const nativeIds = listed.map((entry) => entry.provider)
   const coverage = coverageOf(PRESETS, nativeIds)
   const coveredBy = new Map(coverage.covered.map((entry) => [entry.id, entry.as]))
 
@@ -197,12 +239,55 @@ async function stateOf(ctx) {
       live: live.has(route),
       modelCount: Array.isArray(profile?.models) ? profile.models.length : 0,
       displayName: typeof profile?.displayName === 'string' ? profile.displayName : route,
+      // Which lever hiding this route pulls, so the row's copy can say whether
+      // the card goes too (`profile`) or only the picker group does (`catalog`).
+      hideMode: routeTarget(llm, route)?.mode ?? null,
     }
   }
+
+  // Every declared route's hiding lever, plus every configured one: a catalog
+  // route (DeepSeek's) has no profile, so it never appears in `routes`, while a
+  // configured route can be missing from the directory until pi-ai recomputes it.
+  const hideModes = {}
+  const directoryNames = new Map()
+  for (const entry of listed) {
+    hideModes[entry.provider] = (Array.isArray(entry.settingsPath) ? entry.settingsPath : []).length === 0 ? 'catalog' : 'profile'
+    // A catalog route's product name lives only in its directory entry: its
+    // settings value carries no displayName of its own.
+    if (typeof entry.displayName === 'string' && entry.displayName !== '') directoryNames.set(entry.provider, entry.displayName)
+  }
+  for (const route of Object.keys(providers)) hideModes[route] = routeTarget(llm, route).mode
 
   return {
     revision: descriptor.revision,
     routes,
+    hideModes,
+    hidden: Object.fromEntries(
+      Object.entries(readJson(hiddenPath())).map(([route, entry]) => {
+        const profile = entry?.value ?? entry?.profile
+        const stashed = Array.isArray(entry?.models) ? entry.models : undefined
+        return [
+          route,
+          {
+            displayName:
+              typeof entry?.displayName === 'string'
+                ? entry.displayName
+                : typeof profile?.displayName === 'string'
+                  ? profile.displayName
+                  : (directoryNames.get(route) ?? route),
+            mode: entry?.mode === 'catalog' ? 'catalog' : 'profile',
+            hiddenAt: typeof entry?.hiddenAt === 'string' ? entry.hiddenAt : null,
+            modelCount: Number.isInteger(entry?.modelCount)
+              ? entry.modelCount
+              : Array.isArray(profile?.models)
+                ? profile.models.length
+                : Array.isArray(stashed)
+                  ? stashed.length
+                  : 0,
+          },
+        ]
+      }),
+    ),
     coverage: {
       native: nativeIds.length,
       visible: coverage.visible.length,
@@ -299,6 +384,100 @@ async function remove(ctx, body) {
   return { route }
 }
 
+/**
+ * Take a route out of the composer's model picker without losing anything.
+ *
+ * Which lever that takes depends on how the route is registered (see
+ * {@link routeTarget}): a `profile` route loses its `providers.<route>` value,
+ * so it unregisters and both its card and its picker group go; a `catalog` route
+ * keeps its adapter (the official plugin registers it unconditionally) and
+ * instead has its model catalog emptied, which leaves the card in place and
+ * takes only the picker group away. Either way the stashed value is what showing
+ * the route writes back, and the credential is never touched.
+ */
+async function hideRoute(ctx, body) {
+  const { settings, llm } = services(ctx)
+  if (!settings) throw new HttpError(503, 'service-missing', 'DSH 设置服务不可用')
+  const route = typeof body.route === 'string' ? body.route.trim() : ''
+  if (route === '') throw new HttpError(400, 'invalid', 'route required')
+  const target = routeTarget(llm, route)
+  const descriptor = namespaceDescriptor(settings, target.ns)
+  if (!descriptor) throw new HttpError(503, 'namespace-missing', `设置命名空间 ${target.ns} 未注册`)
+  const value = readPath(descriptor.user, target.path)
+
+  const hidden = readJson(hiddenPath())
+  const stash = { mode: target.mode, ns: target.ns, path: target.path, hiddenAt: new Date().toISOString() }
+  let ops
+  if (target.mode === 'profile') {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      throw new HttpError(404, 'not-configured', `路由 ${route} 未配置`)
+    }
+    stash.value = value
+    stash.displayName = typeof value.displayName === 'string' ? value.displayName : route
+    stash.modelCount = Array.isArray(value.models) ? value.models.length : 0
+    ops = [{ op: 'unset', path: target.path }]
+  } else {
+    // A catalog route stays registered: empty its model catalog instead, which
+    // is what the picker's `models.length > 0` group filter reads.
+    const models = value && typeof value === 'object' && !Array.isArray(value) ? value.models : undefined
+    stash.models = models === undefined ? null : models
+    stash.hadModels = models !== undefined
+    stash.displayName = typeof value?.displayName === 'string' ? value.displayName : undefined
+    stash.modelCount = Array.isArray(models) ? models.length : 0
+    ops = [{ op: 'set', path: [...target.path, 'models'], value: [] }]
+  }
+  hidden[route] = stash
+  writeJson(hiddenPath(), hidden)
+
+  try {
+    await settings.mutate(target.ns, ops, descriptor.revision)
+  } catch (error) {
+    if (isConflict(error)) throw new HttpError(409, 'conflict', '设置已被其他界面修改，请刷新后重试')
+    throw new HttpError(500, 'write-failed', `隐藏失败：${String((error && error.message) || error)}`)
+  }
+  return { route, mode: target.mode }
+}
+
+/** Put a hidden route back, byte for byte, from the stash. */
+async function showRoute(ctx, body) {
+  const { settings } = services(ctx)
+  if (!settings) throw new HttpError(503, 'service-missing', 'DSH 设置服务不可用')
+  const route = typeof body.route === 'string' ? body.route.trim() : ''
+  if (route === '') throw new HttpError(400, 'invalid', 'route required')
+  const hidden = readJson(hiddenPath())
+  const stash = hidden[route]
+  if (!stash || typeof stash !== 'object') throw new HttpError(404, 'not-hidden', `路由 ${route} 不在隐藏列表里`)
+  // The first shape this plugin wrote kept only `profile`.
+  const mode = stash.mode === 'catalog' ? 'catalog' : 'profile'
+  const ns = typeof stash.ns === 'string' ? stash.ns : PI_AI_NS
+  const path = Array.isArray(stash.path) ? stash.path : ['providers', route]
+  const descriptor = namespaceDescriptor(settings, ns)
+  if (!descriptor) throw new HttpError(503, 'namespace-missing', `设置命名空间 ${ns} 未注册`)
+
+  let ops
+  if (mode === 'profile') {
+    const profile = stash.profile ?? stash.value
+    if (!profile || typeof profile !== 'object') throw new HttpError(404, 'not-hidden', `路由 ${route} 的存档不完整`)
+    ops = [{ op: 'set', path, value: profile }]
+  } else if (stash.hadModels === true) {
+    ops = [{ op: 'set', path: [...path, 'models'], value: stash.models }]
+  } else {
+    // The catalog was never overridden: dropping our empty list restores the
+    // namespace's own default catalog.
+    ops = [{ op: 'unset', path: [...path, 'models'] }]
+  }
+
+  try {
+    await settings.mutate(ns, ops, descriptor.revision)
+  } catch (error) {
+    if (isConflict(error)) throw new HttpError(409, 'conflict', '设置已被其他界面修改，请刷新后重试')
+    throw new HttpError(500, 'write-failed', `显示失败：${String((error && error.message) || error)}`)
+  }
+  delete hidden[route]
+  writeJson(hiddenPath(), hidden)
+  return { route, mode }
+}
+
 // --- configurable-provider directory -----------------------------------------
 
 /**
@@ -313,22 +492,35 @@ function journalPath() {
   return join(homedir(), '.provider-hub', 'directory.json')
 }
 
-function readJournal() {
+/**
+ * Routes the user hid, with the profile they had.
+ *
+ * Hiding is how a route leaves the composer's model picker without being
+ * deleted: that picker lists `llm.listProviders()`, and a route is registered
+ * only while the user layer carries its profile. The credential never left the
+ * credentials service, so showing the route again is one write - no key, no
+ * endpoint, no model list to re-enter.
+ */
+function hiddenPath() {
+  return join(homedir(), '.provider-hub', 'hidden.json')
+}
+
+function readJson(file) {
   try {
-    const parsed = JSON.parse(readFileSync(journalPath(), 'utf8'))
+    const parsed = JSON.parse(readFileSync(file, 'utf8'))
     return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
   } catch {
     return {}
   }
 }
 
-function writeJournal(journal) {
+function writeJson(file, value) {
   try {
-    const file = journalPath()
     mkdirSync(dirname(file), { recursive: true })
-    writeFileSync(file, `${JSON.stringify(journal, null, 2)}\n`)
+    writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`)
   } catch {
-    // Best effort: without the journal the next pass simply curates again.
+    // Best effort: without the journal the next pass simply curates again, and
+    // without the hidden stash the route is simply gone from the picker.
   }
 }
 
@@ -380,7 +572,7 @@ async function syncDirectory(ctx, state) {
     }
   }
 
-  const journal = readJournal()
+  const journal = readJson(journalPath())
   const plan = (taken) =>
     planSync({
       presets: PRESETS,
@@ -427,7 +619,7 @@ async function syncDirectory(ctx, state) {
     journal[preset.id] = { fingerprint: presetFingerprint(preset), curatedAt: null, respected: true }
     recorded = true
   }
-  if (recorded) writeJournal(journal)
+  if (recorded) writeJson(journalPath(), journal)
 
   for (const preset of enrich) {
     // Re-read per route: an earlier write in this loop moves the revision.
@@ -440,7 +632,7 @@ async function syncDirectory(ctx, state) {
         await settings.mutate(PI_AI_NS, [{ op: 'set', path: ['providers', preset.id], value: profile }], current.revision)
       }
       journal[preset.id] = { fingerprint: presetFingerprint(preset), curatedAt: new Date().toISOString() }
-      writeJournal(journal)
+      writeJson(journalPath(), journal)
     } catch (error) {
       // A conflicting revision retries on the next pass. The route keeps
       // serving meanwhile; it just carries what the official editor wrote.
@@ -508,6 +700,8 @@ export function apply(ctx) {
 
     postRoute('enable', (body) => enable(ctx, body))
     postRoute('remove', (body) => remove(ctx, body))
+    postRoute('hide', (body) => hideRoute(ctx, body))
+    postRoute('show', (body) => showRoute(ctx, body))
   }
 
   const webServer = ctx.get('webServer')

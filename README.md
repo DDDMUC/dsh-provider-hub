@@ -31,6 +31,33 @@ dsh plugin --profile web add link:/path/to/dsh-provider-hub
 >
 > 判定方式是**指纹而非标记**——DSH 不记录路由来源，因此要求：路由 ID 属于本目录的预设，且该路由的显示名等于预设名（官方编辑器会从本插件声明的目录条目预填这个显示名；只给原生路由填 Key 的情况保留路由 ID 作显示名，不会被误标）。代价：① 手动改过显示名的路由不再带标；② 若某预设日后从目录下线，其既有路由也不再带标，需自行核对 `cordis.patch.yml`。
 
+## 隐藏 / 显示提供商（不丢 Key、不丢配置）
+
+额度用完了、或者只是暂时不想看见，就**隐藏**它：路由会从**聊天输入框的模型选择器**里消失，Models 页的那张卡片也一起消失，但 **Key 与全部配置都留着**——随时点一下就能原样恢复，不用重填任何东西。
+
+- **隐藏**：Models 页每条 pi-ai 服务商行内（`Hub` 徽标旁边）的「隐藏」。确认后插件把该路由**整份 profile** 存进 `~/.provider-hub/hidden.json`，再把它从用户层撤下。凭据服务里的 Key 完全没动。
+- **恢复**：页脚那行「已隐藏 N 个提供商（点名字恢复）」，点名字即原样写回（含 `apiKeyEnv` / `baseURL` / `api` / `models` / `compat` / `headers`）。
+- 隐藏后的预设还会以「休眠」状态回到 **添加模型提供商 → 第三方模型提供商** 的下拉里，这是第二条恢复路径（走官方编辑器）。
+
+原理：模型选择器的数据源是 `llm.listProviders()` —— **只有用户层带着 profile 的路由才会注册**，所以撤下 profile 就等于同时离开选择器与设置页，而 Key 引用不需要跟着走。
+
+### 两种「隐藏」的杠杆
+
+插件按**提供商目录**里该路由的 `settingsPath` 自动选杠杆，所以卡片上的文案会告诉你这次会隐藏到什么程度：
+
+| 路由类型 | 杠杆 | 效果 | 例子 |
+|---|---|---|---|
+| `profile`（`settingsPath = ['providers', <route>]`） | 撤下该 profile | **卡片 + 选择器一起消失**；恢复时原样写回 | `opencode`、`opencode-go`、`Command Code`、`ClinePass`、`Cline Free`、千帆… |
+| `catalog`（`settingsPath = []`） | 清空该路由的 `models`，并在页面上把该行藏起来 | **卡片与选择器都消失**；恢复时把原目录写回 | **DeepSeek**（`deepseek-official`） |
+
+`catalog` 模式为什么多一步：这类路由由**它自己的官方插件**在 apply 时无条件注册适配器与目录条目（`ctx.llm.registerAdapter([provider], adapter)`），配置层面注销不掉，所以插件做两件事——① 清空 `models` 让选择器那个分组因「零模型」被过滤；② 在自己的行内槽位里用 `closest('li')` 把整张卡隐藏（该 `<li>` 以 provider 为 key，节点稳定）。**这是页面级隐藏，不是注销**：配置仍在用户层，点页脚「显示」即原样写回并恢复整行。
+
+`catalog` 模式恢复时：你原本改过模型目录就**写回原目录**；没改过就 unset，让它回到命名空间自带的默认目录。
+
+> 想让 DeepSeek 那张卡**真正从配置层消失**（连路由都不注册）只有一条路：在 profile 组合里 `disabled: true` 掉 `llm-deepseek` 这个条目（它对应包 `@deepseek-ai/dsh-llm-deepseek-api-key`）。本插件不替你做这种跨插件的开关决定；`DeepSeek 账号`（`llm-deepseek-account`）是另一个条目，不受影响，Key 也留在凭据服务里。
+
+> **DeepSeek 账号**（`deepseek-account`）不在支持范围：它的模型清单由账号联网 `/models` 拉取，插件明确拒绝 `models` 键（*"models is no longer configurable; the account /models listing supplies the catalog"*），配置层面没有可清空的目录。真要它别出现在选择器里，官方做法是**退出登录**。
+
 ## 自定义服务商
 
 本插件不再自带自定义入口——DSH 官方就有：同一个「添加模型提供商」卡片里，方式选 **自定义模型 API** 即可接入任何 OpenAI / Anthropic 兼容端点（填 Provider ID、API 地址、协议、模型，还能点「获取可用模型」直接探测端点）。
