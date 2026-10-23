@@ -4,7 +4,7 @@
 
 为 DSH 扩大可用的服务商：**在官方 Models 页选一个服务商，粘贴 API Key，保存**——预设与 DSH 自带的 42 家并列在同一个下拉里，插件把官方 `llm-pi-ai` 路由与凭据一次性写好，立即生效、无需重启、无需手改 `settings.yaml`。
 
-内置 **54 家服务商预设**（OpenAI 兼容 / Anthropic Messages / OpenAI Responses 三种协议），覆盖国际与国内的普通 API 与 **订阅渠道**（百炼 Token Plan、智谱 Coding、Kimi Coding、MiniMax Coding Plan、小米 MiMo、OpenCode Zen、**火山方舟 Agent Plan** 等）；DSH 已内置的服务商不会重复出现在下拉里。
+内置 **57 家服务商预设 / 2894 个模型**（其中 2494 个来自 models.dev 补充目录，见「目录维护」）（OpenAI 兼容 / Anthropic Messages / OpenAI Responses 三种协议），覆盖国际与国内的普通 API 与 **订阅渠道**（百炼 Token Plan、智谱 Coding、Kimi Coding、MiniMax Coding Plan、小米 MiMo、OpenCode Zen、**火山方舟 Agent Plan** 等）；DSH 已内置的服务商不会重复出现在下拉里。
 
 ## 安装
 
@@ -79,7 +79,7 @@ dsh plugin --profile web add link:/path/to/dsh-provider-hub
 
 ## 预设清单
 
-OpenAI、OpenRouter、Anthropic、Google Gemini、xAI Grok、Mistral、Groq、Together、Fireworks、DeepInfra、Novita、Cerebras、NVIDIA NIM、Baseten、HuggingFace Router、**Vercel AI Gateway**、**OpenCode Zen / Zen Go**、硅基流动、月之暗面 Kimi（国内/国际）、**Kimi Coding Plan**、智谱 GLM（国内）、**智谱 Coding Plan**、Z.ai GLM、**MiniMax Coding Plan（国际/国内）**、MiniMax（国内）、**阿里云百炼 Token Plan（国内/国际）**、阿里云百炼 Qwen、百度千帆、腾讯混元、火山方舟（豆包）、**小米 MiMo**、**Ant Ling**、**LongCat（美团）**、**StepFun Step Plan（国内/国际）**、**火山方舟 Agent Plan**、**ClinePass**、**Command Code**、**Kilo Gateway**、**Nous Portal**、**Cline Free**、**ZenMux**、**Poe**、**302.AI**、**七牛云 AI**、**腾讯云 Coding Plan**、**ClinePass**、**DeepSeek**、**小米 MiMo Token Plan（国内/新加坡/美国）**。
+OpenAI、OpenRouter、Anthropic、Google Gemini、xAI Grok、Mistral、Groq、Together、Fireworks、DeepInfra、Novita、Cerebras、NVIDIA NIM、Baseten、HuggingFace Router、**Vercel AI Gateway**、**OpenCode Zen / Zen Go**、硅基流动、月之暗面 Kimi（国内/国际）、**Kimi Coding Plan**、智谱 GLM（国内）、**智谱 Coding Plan**、Z.ai GLM、**MiniMax Coding Plan（国际/国内）**、MiniMax（国内）、**阿里云百炼 Token Plan（国内/国际）**、阿里云百炼 Qwen、百度千帆、腾讯混元、火山方舟（豆包）、**小米 MiMo**、**Ant Ling**、**LongCat（美团）**、**StepFun Step Plan（国内/国际）**、**火山方舟 Agent Plan**、**ClinePass**、**Command Code**、**Kilo Gateway**、**Nous Portal**、**Cline Free**、**AIHubMix**、**Requesty**、**Kenari**、**ZenMux**、**Poe**、**302.AI**、**七牛云 AI**、**腾讯云 Coding Plan**、**ClinePass**、**DeepSeek**、**小米 MiMo Token Plan（国内/新加坡/美国）**。
 
 **火山方舟 Agent Plan** 预设写入 `https://ark.cn-beijing.volces.com/api/plan/v3`（**不是 `/api/v3`**——后者按量计费），协议走 Responses API（对应 OpenCode 的 `@ai-sdk/openai`；要更旧的 Chat API 就把协议改成 OpenAI 兼容）。收录 `ark-code-latest` 与 deepseek-v4.1-flash / glm-5.3 / kimi-k3 / deepseek-v4-pro / deepseek-v4-flash / kimi-k2.8-preview，后六者均标注 1M 上下文窗口。
 
@@ -90,6 +90,8 @@ OpenAI、OpenRouter、Anthropic、Google Gemini、xAI Grok、Mistral、Groq、To
 - **OpenCode**：免费层级拿不到——`/zen/v1` 的 `*-free` 模型报 FreeTierError「只能在 OpenCode 应用内使用」，`/zen/go/v1` 网关则要求 **$10/月的 Go 订阅**（`step-5-preview-free` / `longcat-2.5-preview-free` 是 Go 内无限免费，而非无订阅可用）。已实测：Go 网关还会拒绝没有 `x-opencode-session` 头的请求，而 pi-ai 适配器不发这个头——`opencode-go` 预设已通过 profile 级 `headers` 自动注入，订阅用户直接启用即可。
 - **Cline Free**：`cline-free/*` 的 Step 5 **只对 Cline 产品面开放**（API 调用返回 403），拿不到；但 `:free` 系列（Poolside / NVIDIA / Cohere / Gemma / DOTS…）走 API 可用，且**不计入 ClinePass 周额度**，复用已有的 `CLINE_API_KEY` 即可启用。
 - **Puter**：未收录——其 OpenAI 兼容端点 `/puterai/openai/v1/*` 对免费账户返回 `402 subscription_required`，只有 puter.js 的 User-Pays 通道免费，DSH 用不上。
+- **AIHubMix / Requesty / Kenari**：这三家是**冲着免费额度**收的，不是冲着规模——它们转售的模型本目录基本已经能拿到（按 `canonical_model_id` 归并后，三家分别只带来 4 / 18 / 3 个新模型），价值在于各自的零成本条目：AIHubMix 16 个、Requesty 12 个、Kenari 10 个。其中 **AIHubMix 的端点得手工钉住**（`https://aihubmix.com/v1`）——models.dev 对它的 `api` 字段是 undefined（它走自家 AI SDK 包），模型清单仍由 `tools/sync-modelsdev.mjs` 生成。
+- **没收的云**：Azure / Bedrock / Vertex / SAP AI Core 这类大厂云在 models.dev 里 `api` 同样是 undefined（走各自 SDK 的签名与资源名认证），本插件的 profile 只能表达「baseURL + 一个凭据引用 + 三种协议之一」，适配器也只发 `x-api-key`/`Bearer`，写进去是坏的；`neon` 的端点则是模板变量 `${NEON_AI_GATEWAY_BASE_URL}/v1`，每个项目不同、钉不住。这些一律不收。
 
 关于内置：DSH 自带 DeepSeek 官方适配器（`llm-deepseek`），其目录里的 `stepfun` 指向普通付费端点 `api.stepfun.com/v1`——**Step Plan 订阅端点（`step_plan/v1`）没有内置条目，因此本插件提供该预设**；其余与本插件重合的服务商由 DSH 原生目录覆盖的那些默认折叠在「显示 DSH 已内置」开关后。已配置过的 Key（包括来自环境变量的）会被识别，留空输入框即可直接启用。
 
@@ -203,7 +205,12 @@ node tools/patch-chatgpt.mjs --restore
 
 ## 目录维护
 
+- **models.dev 补充目录**：`node tools/sync-modelsdev.mjs` 读 OpenCode 那份 models.dev 全量缓存（`~/.cache/opencode/models.json`），把每个**已有预设**缺的模型补进生成文件 `core/catalog-models.js`。它**只做加法**：`core/providers.js` 里的手工条目、注释、已策展字段一个都不动，且永远排在新模型前面。`--check` 可判断生成文件是否过期。
+  - 抄得动的：模型清单（id / 名称 / 上下文 / 输出上限）、**思考等级**（models.dev 的 `reasoning_options.values` 与 pi-ai 的 `THINKING_LEVELS` 同名，`none` → `off: null`）
+  - 抄不动的：**模态只能 text / image** —— pi-ai 的 `MODALITIES` 就这两个值，models.dev 的 `pdf` / `video` / `audio` 写进 profile 会被 schema 直接拒（实测报错 `expected "text" | "image" but got "pdf"`），生成器会裁掉；输出不是文本的模型（画图/语音/embedding）也一并裁掉
+  - 匹配按 **id → baseURL → 名称相等**，故意**不用凭据变量名兜底**：同一家会用同一个 env 覆盖不同套餐端点（`STEPFUN_API_KEY` 同时管 `api.stepfun.com/v1` 与 `/step_plan/v1`），按 env 匹配会把一个套餐的模型嫁接到另一个套餐的预设上
 - 模型清单与逐模型兼容开关可从任意权威目录刷新：`node tools/refresh-catalog.mjs --catalog <catalog.json>`（先 `--dry` 审阅）；路由级只保留全部模型一致的开关，不一致的由模型自己携带 `compat`
+- 校验：`node --test` 跑形状不变量（模态集合、思考档集合、正整数限额、id 唯一、生成文件只做加法）；`node tools/verify-presets.mjs <dsh-llm-pi-ai 路径>` 再拿**装着的真实 pi-ai schema** 逐条过一遍（`schemastery` 的 Ref 要 `.get()` 读值）
 - WorkBuddy 端用 `node tools/workbuddy.mjs add-all --prune` 同步：装入全部预设并清掉目录里已不存在的旧条目
 
 ## 注意

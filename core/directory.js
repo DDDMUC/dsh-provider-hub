@@ -24,10 +24,18 @@
 
 import { buildProfile } from './profile.js'
 
-/** Stable identity of one preset's curated shape, for the enrichment journal. */
+/**
+ * Stable identity of one preset's curated shape, for the enrichment journal.
+ *
+ * The CURATED model list is what counts: `core/catalog-models.js` adds models
+ * from the shared models.dev catalog, and a route someone already adopted - and
+ * possibly hand-trimmed - must not be rewritten just because that supplement
+ * grew. A change to the hand-written list still re-curates, which is the point.
+ */
 export function presetFingerprint(preset) {
   const headers = preset && preset.headers && typeof preset.headers === 'object' ? Object.keys(preset.headers).sort() : []
-  return [preset.api, preset.baseURL, preset.models.length, preset.name, ...headers].join('|')
+  const curated = preset && Array.isArray(preset.curatedModels) ? preset.curatedModels : preset?.models
+  return [preset.api, preset.baseURL, curated.length, preset.name, ...headers].join('|')
 }
 
 /**

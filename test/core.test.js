@@ -181,14 +181,18 @@ test('catalog: Command Code carries the whole GOAT plan catalog', () => {
   assert.equal(preset.env, 'COMMANDCODE_API_KEY')
   // The one switch the provider needs beyond the OpenAI-compatible defaults.
   assert.deepEqual(preset.compat, { supportsDeveloperRole: true })
-  assert.equal(preset.models.length, 58)
-  assert.equal(new Set(preset.models.map((model) => model.id)).size, 58)
+  // The recovered GOAT catalog is the curated list, untouched; the models.dev
+  // supplement may add more on top (see test/catalog.test.js).
+  assert.equal(preset.curatedModels.length, 58)
+  assert.equal(new Set(preset.curatedModels.map((model) => model.id)).size, 58)
+  assert.ok(preset.models.length >= 58)
+  assert.equal(new Set(preset.models.map((model) => model.id)).size, preset.models.length)
   assert.ok(preset.models.some((model) => model.id === 'gpt-6-luna'))
   assert.ok(preset.models.some((model) => model.id === 'MiniMaxAI/MiniMax-M2.5'))
   // `off` stays a string key: the settings document round-trips `off: null`.
   assert.equal(preset.models[0].reasoningEfforts.off, null)
   // The recovered catalog must build a profile the adapter accepts.
   const profile = buildProfile({ presetId: 'commandcode' })
-  assert.equal(profile.models.length, 58)
+  assert.equal(profile.models.length, preset.models.length)
   assert.equal(profile.apiKeyEnv, 'COMMANDCODE_API_KEY')
 })
