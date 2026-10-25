@@ -4,7 +4,7 @@
 
 为 DSH 扩大可用的服务商：**在官方 Models 页选一个服务商，粘贴 API Key，保存**——预设与 DSH 自带的 42 家并列在同一个下拉里，插件把官方 `llm-pi-ai` 路由与凭据一次性写好，立即生效、无需重启、无需手改 `settings.yaml`。
 
-内置 **57 家服务商预设 / 2894 个模型**（其中 2494 个来自 models.dev 补充目录，见「目录维护」）（OpenAI 兼容 / Anthropic Messages / OpenAI Responses 三种协议），覆盖国际与国内的普通 API 与 **订阅渠道**（百炼 Token Plan、智谱 Coding、Kimi Coding、MiniMax Coding Plan、小米 MiMo、OpenCode Zen、**火山方舟 Agent Plan** 等）；DSH 已内置的服务商不会重复出现在下拉里。
+内置 **58 家服务商预设 / 2908 个模型**（其中 2494 个来自 models.dev 补充目录，见「目录维护」）（OpenAI 兼容 / Anthropic Messages / OpenAI Responses 三种协议），覆盖国际与国内的普通 API 与 **订阅渠道**（百炼 Token Plan、智谱 Coding、Kimi Coding、MiniMax Coding Plan、小米 MiMo、OpenCode Zen、**火山方舟 Agent Plan** 等）；DSH 已内置的服务商不会重复出现在下拉里。
 
 ## 安装
 
@@ -79,7 +79,7 @@ dsh plugin --profile web add link:/path/to/dsh-provider-hub
 
 ## 预设清单
 
-OpenAI、OpenRouter、Anthropic、Google Gemini、xAI Grok、Mistral、Groq、Together、Fireworks、DeepInfra、Novita、Cerebras、NVIDIA NIM、Baseten、HuggingFace Router、**Vercel AI Gateway**、**OpenCode Zen / Zen Go**、硅基流动、月之暗面 Kimi（国内/国际）、**Kimi Coding Plan**、智谱 GLM（国内）、**智谱 Coding Plan**、Z.ai GLM、**MiniMax Coding Plan（国际/国内）**、MiniMax（国内）、**阿里云百炼 Token Plan（国内/国际）**、阿里云百炼 Qwen、百度千帆、腾讯混元、火山方舟（豆包）、**小米 MiMo**、**Ant Ling**、**LongCat（美团）**、**StepFun Step Plan（国内/国际）**、**火山方舟 Agent Plan**、**ClinePass**、**Command Code**、**Kilo Gateway**、**Nous Portal**、**Cline Free**、**AIHubMix**、**Requesty**、**Kenari**、**ZenMux**、**Poe**、**302.AI**、**七牛云 AI**、**腾讯云 Coding Plan**、**ClinePass**、**DeepSeek**、**小米 MiMo Token Plan（国内/新加坡/美国）**。
+OpenAI、OpenRouter、Anthropic、Google Gemini、xAI Grok、Mistral、Groq、Together、Fireworks、DeepInfra、Novita、Cerebras、NVIDIA NIM、Baseten、HuggingFace Router、**Vercel AI Gateway**、**OpenCode Zen / Zen Go**、硅基流动、月之暗面 Kimi（国内/国际）、**Kimi Coding Plan**、智谱 GLM（国内）、**智谱 Coding Plan**、Z.ai GLM、**MiniMax Coding Plan（国际/国内）**、MiniMax（国内）、**阿里云百炼 Token Plan（国内/国际）**、阿里云百炼 Qwen、百度千帆、腾讯混元、火山方舟（豆包）、**小米 MiMo**、**Ant Ling**、**LongCat（美团）**、**StepFun Step Plan（国内/国际）**、**火山方舟 Agent Plan**、**ClinePass**、**Command Code**、**Kilo Gateway**、**Nous Portal**、**Cline Free**、**AIHubMix**、**Requesty**、**Kenari**、**ZenMux**、**Poe**、**302.AI**、**七牛云 AI**、**腾讯云 Coding Plan**、**ClinePass**、**DeepSeek**、**小米 MiMo Token Plan（国内/新加坡/美国）**、**APIGOTO 聚合路由**。
 
 **火山方舟 Agent Plan** 预设写入 `https://ark.cn-beijing.volces.com/api/plan/v3`（**不是 `/api/v3`**——后者按量计费），协议走 Responses API（对应 OpenCode 的 `@ai-sdk/openai`；要更旧的 Chat API 就把协议改成 OpenAI 兼容）。收录 `ark-code-latest` 与 deepseek-v4.1-flash / glm-5.3 / kimi-k3 / deepseek-v4-pro / deepseek-v4-flash / kimi-k2.8-preview，后六者均标注 1M 上下文窗口。
 

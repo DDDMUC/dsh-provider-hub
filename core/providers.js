@@ -1126,6 +1126,31 @@ export const CURATED_PRESETS = [
       { id: "mimo-v2.5-pro", name: "MiMo-V2.5-Pro", contextWindow: 1048576, maxTokens: 131072, input: ['text'], compat: {"requiresReasoningContentOnAssistantMessages":true,"thinkingFormat":"deepseek"} },
     ],
   },
+  {
+    id: 'apigoto',
+    name: 'APIGOTO 聚合路由',
+    docs: 'https://www.apigoto.com/apidoc/quickstart.html',
+    keyUrl: 'https://www.apigoto.com',
+    env: 'APIGOTO_API_KEY',
+    baseURL: 'https://api.apigoto.com/v1',
+    api: 'openai-completions',
+    models: [
+      { id: "deepseek-flash", name: "DeepSeek V4.1 Flash", contextWindow: 1000000, maxTokens: 384000, input: ['text', 'image'], reasoningEfforts: {"low":"low","high":"high","max":"max"} },
+      { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro", contextWindow: 1000000, maxTokens: 384000, input: ['text'], reasoningEfforts: {"high":"high","max":"max"} },
+      { id: "claude-sonnet-5", name: "Claude Sonnet 5", contextWindow: 1000000, maxTokens: 128000, input: ['text', 'image'], reasoningEfforts: {"xhigh":"xhigh","max":"max"} },
+      { id: "claude-sonnet-5-5", name: "Claude Sonnet 5.5", contextWindow: 1000000, maxTokens: 128000, input: ['text', 'image'], reasoningEfforts: {"off":null,"low":"low","medium":"medium","high":"high","max":"max"} },
+      { id: "claude-opus-5", name: "Claude Opus 5", contextWindow: 1000000, maxTokens: 128000, input: ['text', 'image'], reasoningEfforts: {"xhigh":"xhigh","max":"max"}, compat: {"supportsTemperature":false} },
+      { id: "gpt-6-luna", name: "GPT-6 Luna", contextWindow: 1050000, maxTokens: 128000, input: ['text', 'image'], reasoningEfforts: {"off":null,"low":"low","medium":"medium","high":"high","xhigh":"xhigh","max":"max"} },
+      { id: "gpt-6.1-sol", name: "GPT-6.1 Sol", contextWindow: 1050000, maxTokens: 128000, input: ['text', 'image'], reasoningEfforts: {"off":null,"low":"low","medium":"medium","high":"high","max":"max"} },
+      { id: "gemini-3.5-flash", name: "Gemini 3.5 Flash", contextWindow: 1048576, maxTokens: 65536, input: ['text', 'image'] },
+      { id: "glm-5.3", name: "GLM-5.3", contextWindow: 1000000, maxTokens: 131072, input: ['text'], reasoningEfforts: {"low":"low","high":"high","max":"max"} },
+      { id: "grok-4.6", name: "Grok 4.6", contextWindow: 500000, maxTokens: 500000, input: ['text', 'image'], reasoningEfforts: {"low":"low","medium":"medium","high":"high","xhigh":"xhigh"} },
+      { id: "kimi-k3", name: "Kimi K3", contextWindow: 1048576, maxTokens: 262144, input: ['text', 'image'], reasoningEfforts: {"off":null,"low":"low","medium":"medium","high":"high","max":"max"} },
+      { id: "minimax-m2.7", name: "MiniMax-M2.7", contextWindow: 200000, maxTokens: 128000, input: ['text'], reasoningEfforts: {"off":null,"low":"low","medium":"medium","high":"high","max":"max"} },
+      { id: "mimo-v2.6-flash", name: "MiMo-V2.6-Flash", contextWindow: 1048576, maxTokens: 131072, input: ['text', 'image'], reasoningEfforts: {"off":null,"low":"low","medium":"medium","high":"high","max":"max"} },
+      { id: "qwen3.8-max", name: "Qwen3.8 Max", contextWindow: 1000000, maxTokens: 131072, input: ['text', 'image'], reasoningEfforts: {"low":"low","medium":"medium","xhigh":"xhigh"} },
+    ],
+  },
 ]
 // --- end preset catalog ---
 
