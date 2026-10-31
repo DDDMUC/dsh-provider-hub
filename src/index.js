@@ -29,7 +29,7 @@
 // shape is built and validated by ../core/profile.js, shared with any other
 // shell that consumes the same core.
 
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { appendFileSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 
@@ -524,6 +524,25 @@ function writeJson(file, value) {
   }
 }
 
+/** Registration failures were silent before; keep the last few lines on disk. */
+function noteSyncError(error) {
+  const reason = String(error && (error.stack || error.message) ? error.stack || error.message : error)
+  appendTrace(`error ${reason}`)
+}
+
+function appendTrace(line) {
+  try {
+    const file = join(homedir(), '.provider-hub', 'sync-trace.log')
+    mkdirSync(dirname(file), { recursive: true })
+    // 128 KiB is plenty for the handful of lines a start writes.
+    const size = statSync(file, { throwIfNoEntry: false })?.size ?? 0
+    if (size > 131072) writeFileSync(file, '')
+    appendFileSync(file, `[${new Date().toISOString()}] ${line}\n`)
+  } catch {
+    // nothing else to do about it
+  }
+}
+
 function sameRouteSet(held, entries) {
   if (held.size !== entries.length) return false
   return entries.every((entry) => held.has(entry.provider))
@@ -544,9 +563,26 @@ function sameRouteSet(held, entries) {
  */
 async function syncDirectory(ctx, state) {
   const { settings, llm } = services(ctx)
-  if (!settings || !llm || typeof llm.registerConfigurableProviders !== 'function') return
+  appendTrace(`enter settings=${typeof settings} llm=${typeof llm} register=${typeof llm?.registerConfigurableProviders} list=${typeof llm?.listConfigurableProviders}`)
+  if (!settings || !llm || typeof llm.registerConfigurableProviders !== 'function') {
+    appendTrace('skip: service or register method missing')
+    return
+  }
   const descriptor = piAiDescriptor(settings)
-  if (!descriptor) return
+  if (!descriptor) {
+    // pi-ai declares its settings namespace a beat after the services come up,
+    // so the first pass always lands too early. Waiting for the next load event
+    // is not enough - it may never come. Retry on a short backoff instead.
+    state.misses = (state.misses ?? 0) + 1
+    appendTrace(`pi-ai namespace missing, retry ${state.misses}`)
+    if (state.misses <= 10) {
+      setTimeout(() => {
+        syncDirectory(ctx, state).catch(noteSyncError)
+      }, Math.min(200 * state.misses, 2000))
+    }
+    return
+  }
+  state.misses = 0
 
   const profiles = userProviders(descriptor)
   const configured = new Set(Object.keys(profiles))
@@ -563,6 +599,7 @@ async function syncDirectory(ctx, state) {
     // out, or a preset would look covered by itself and be withdrawn.
     const foreign = new Set(listed.map((entry) => entry.provider).filter((provider) => !state.held.has(provider)))
     return {
+      listed,
       foreign,
       // Presets the app already serves under another route id (`gemini` is
       // `google`, `opencode-zen` is `opencode`): declaring those would offer the
@@ -585,7 +622,8 @@ async function syncDirectory(ctx, state) {
       journal,
       settingsNs: PI_AI_NS,
     })
-  const { entries, enrich, respected } = plan(readDirectory())
+  const taken = readDirectory()
+  const { entries, enrich, respected } = plan(taken)
 
   const applyEntries = (next) => {
     if (state.handle === undefined) {
@@ -599,16 +637,28 @@ async function syncDirectory(ctx, state) {
     state.held = new Set(next.map((entry) => entry.provider))
   }
 
-  const needed = state.handle === undefined ? entries.length > 0 : !sameRouteSet(state.held, entries)
+  // The live directory is what counts, not what this registration remembers:
+  // pi-ai recomputes its own entries on every volatile update and can drop ours
+  // without telling the handle, which left the select with no presets at all.
+  const present = new Set(taken.listed.map((entry) => entry.provider))
+  const drifted = entries.some((entry) => !present.has(entry.provider))
+  const needed = state.handle === undefined ? entries.length > 0 : drifted || !sameRouteSet(state.held, entries)
+  appendTrace(`plan entries=${entries.length} held=${state.held.size} listed=${taken.listed.length} drifted=${drifted} handle=${state.handle === undefined ? 'none' : 'set'} needed=${needed} hasCommandCode=${entries.some((e) => e.provider === 'commandcode')}`)
   if (needed) {
     try {
       applyEntries(entries)
+      appendTrace(`registered ${entries.length}`)
     } catch (error) {
       // A pass that raced pi-ai's own directory update read a stale foreign set.
       // Recompute against the directory as it stands now and retry once; a
       // second failure is left to the next event.
+      noteSyncError(error)
       const retry = plan(readDirectory())
-      if (!sameRouteSet(state.held, retry.entries)) applyEntries(retry.entries)
+      try {
+        if (!sameRouteSet(state.held, retry.entries)) applyEntries(retry.entries)
+      } catch (again) {
+        noteSyncError(again)
+      }
     }
   }
 
@@ -717,6 +767,7 @@ export function apply(ctx) {
   ctx.inject(['settings', 'llm'], (sub) => {
     const run = () => {
       syncDirectory(sub, directory).catch((error) => {
+        noteSyncError(error)
         const reason = String((error && error.message) || error)
         if (sub.logger && typeof sub.logger.warn === 'function') sub.logger.warn(`dsh-provider-hub: directory sync failed: ${reason}`)
       })
