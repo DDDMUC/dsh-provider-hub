@@ -6,12 +6,17 @@
 //     `Hub` chip for a route this catalog wrote, and a 隐藏 button that takes
 //     the route out of the composer's model picker while keeping its profile and
 //     key (the host stashes the profile; the credential never moves);
-//   * `settings.models.footer` - one line listing the hidden routes, each a
-//     button that writes its profile straight back.
+//   * `settings.models.footer` - two lines: the catalog's own **add** control
+//     (every preset not configured yet), and the hidden routes, each a button
+//     that writes its profile straight back.
 //
-// The catalog itself is declared as configurable providers, so it appears in the
-// page's own **Third-party model provider** select; an adopted route is curated
-// with the models, compat and headers a directory entry cannot carry.
+// The catalog itself is declared as configurable providers, so it also appears
+// in the page's own **Third-party model provider** select. That path only works
+// for providers the installed pi-ai catalog describes: a directory entry cannot
+// carry a model catalog, so a route adopted for anything else arrives with a
+// baseURL and no models, and pi-ai refuses to resolve it. The footer control
+// exists for exactly those routes - it writes the curated profile itself, which
+// makes the result an ordinary provider card whose models stay editable.
 //
 // The chip exists because DSH records no origin for a route: its own `declared`
 // tag only means "not in the installed pi-ai catalog", which a preset route
@@ -56,6 +61,18 @@ window.__ModuleLoader__.load({
       'show.busy': '恢复中…',
       'show.rowHint': '把这条路由放回模型选择器：配置原样写回，不用重填',
       'show.hint': '恢复这条路由：Key 与配置原样写回，不用重填',
+      'catalog.title': '从预设目录添加（{n}）',
+      'catalog.open': '展开',
+      'catalog.close': '收起',
+      'catalog.hint': '添加后就是一张普通的提供商卡片：模型清单和兼容开关随预设写入，之后可以随时改。',
+      'catalog.models': '{n} 个模型',
+      'catalog.add': '添加',
+      'catalog.adding': '添加中…',
+      'catalog.keyHint': '粘贴 {env}',
+      'catalog.confirm': '确定',
+      'catalog.cancel': '取消',
+      'catalog.added': '已添加 {name}（{n} 个模型），可在上面的卡片里改。',
+      'catalog.empty': '预设目录里的提供商都已添加。',
     }
     const en = {
       'badge.hub': 'Hub',
@@ -71,6 +88,18 @@ window.__ModuleLoader__.load({
       'show.busy': 'Restoring…',
       'show.rowHint': 'Put this route back into the model picker; its configuration is written back as it was',
       'show.hint': 'Restore this route: its key and configuration are written back as they were',
+      'catalog.title': 'Add from the preset catalog ({n})',
+      'catalog.open': 'Show',
+      'catalog.close': 'Hide',
+      'catalog.hint': 'What gets added is an ordinary provider card: the preset writes its models and compat switches, and you can change them afterwards.',
+      'catalog.models': '{n} models',
+      'catalog.add': 'Add',
+      'catalog.adding': 'Adding…',
+      'catalog.keyHint': 'Paste {env}',
+      'catalog.confirm': 'Confirm',
+      'catalog.cancel': 'Cancel',
+      'catalog.added': 'Added {name} ({n} models). Edit them on its card above.',
+      'catalog.empty': 'Every provider in the preset catalog is already added.',
     }
 
     const format = (template, vars) =>
@@ -103,6 +132,13 @@ window.__ModuleLoader__.load({
       hiddenBar: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--dsw-alias-border-l3, #f0f0f0)', fontSize: 12 },
       hiddenLabel: { opacity: 0.7 },
       chipButton: { padding: '2px 9px', borderRadius: 999, border: '1px solid var(--dsw-alias-border-l2, #d7dbe0)', background: 'transparent', color: 'inherit', cursor: 'pointer', fontSize: 12 },
+      catalogBar: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--dsw-alias-border-l3, #f0f0f0)', fontSize: 12 },
+      catalogList: { flexBasis: '100%', marginTop: 2 },
+      catalogRow: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, padding: '5px 0', fontSize: 13 },
+      catalogName: { fontWeight: 500 },
+      catalogMeta: { opacity: 0.65, fontSize: 12 },
+      catalogInput: { flex: '1 1 200px', minWidth: 150, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l2, #d7dbe0)', background: 'transparent', color: 'inherit', fontSize: 12 },
+      catalogNotice: { color: 'var(--dsw-alias-state-success-primary, #1a7f37)', fontSize: 12 },
     }
 
     // --- shared state ---------------------------------------------------------
@@ -230,6 +266,120 @@ window.__ModuleLoader__.load({
     // --- footer: the hidden routes --------------------------------------------
 
     /** One line naming every hidden route, each name restoring it. */
+    // --- footer: add from the catalog ----------------------------------------
+
+    /**
+     * The catalog's own add control.
+     *
+     * A directory entry cannot carry a model catalog, so a route adopted through
+     * the official editor arrives with a baseURL and no models - and pi-ai
+     * refuses to resolve a route whose models it does not ship. That dead end
+     * only exists for providers pi-ai has no catalog for, which is exactly what
+     * this catalog is for. Writing the profile here, from the preset, is what
+     * makes the result an ordinary provider card: models and compat switches
+     * land with it and stay editable.
+     */
+    function PresetCatalog({ t }) {
+      const state = useHubState()
+      const [open, setOpen] = react.useState(false)
+      const [busy, setBusy] = react.useState(null)
+      const [error, setError] = react.useState(null)
+      const [notice, setNotice] = react.useState(null)
+      const [keyFor, setKeyFor] = react.useState(null)
+      const [key, setKey] = react.useState('')
+      const tr = (key_, vars) => format(t(key_), vars)
+
+      const presets = state && Array.isArray(state.presets) ? state.presets : []
+      // `covered` presets are ones this app already serves under a native route;
+      // adding them here would offer the same vendor twice.
+      const available = presets.filter((preset) => preset.configured !== true && preset.covered !== true)
+      if (available.length === 0) return null
+
+      const add = async (preset, value) => {
+        setBusy(preset.id)
+        setError(null)
+        setNotice(null)
+        try {
+          const answer = await call('/enable', { method: 'POST', body: JSON.stringify({ presetId: preset.id, key: value }) })
+          await refresh()
+          setKeyFor(null)
+          setKey('')
+          setNotice(tr('catalog.added', { name: preset.name, n: answer.models ?? preset.models.length }))
+        } catch (reason) {
+          setError(String((reason && reason.message) || reason))
+        } finally {
+          setBusy(null)
+        }
+      }
+
+      const start = (preset) => {
+        setError(null)
+        setNotice(null)
+        // A ref that already resolves - an env var, the credentials service, or
+        // another route using the same one - needs no second paste.
+        if (preset.envConfigured === true) {
+          add(preset, '')
+          return
+        }
+        setKeyFor(preset.id)
+        setKey('')
+      }
+
+      return h('div', { style: S.catalogBar },
+        h('span', { style: S.hiddenLabel }, tr('catalog.title', { n: available.length })),
+        h('button', {
+          type: 'button',
+          style: S.linkButton,
+          onClick: () => setOpen(!open),
+        }, open ? t('catalog.close') : t('catalog.open')),
+        open
+          ? h('div', { style: S.catalogList },
+              h('p', { style: { ...S.catalogMeta, margin: '2px 0 4px' } }, t('catalog.hint')),
+              ...available.map((preset) =>
+                h('div', { key: preset.id, style: S.catalogRow },
+                  h('span', { style: S.catalogName }, preset.name),
+                  h('span', { style: S.catalogMeta }, `${preset.baseURL} · ${tr('catalog.models', { n: preset.models.length })}`),
+                  keyFor === preset.id
+                    ? h(react.Fragment, null,
+                        h('input', {
+                          style: S.catalogInput,
+                          type: 'password',
+                          autoFocus: true,
+                          placeholder: tr('catalog.keyHint', { env: preset.env }),
+                          value: key,
+                          onChange: (event) => setKey(event.target.value),
+                          onKeyDown: (event) => {
+                            if (event.key === 'Enter' && key.trim() !== '') add(preset, key)
+                          },
+                        }),
+                        h('button', {
+                          type: 'button',
+                          style: S.chipButton,
+                          disabled: busy === preset.id || key.trim() === '',
+                          onClick: () => add(preset, key),
+                        }, busy === preset.id ? t('catalog.adding') : t('catalog.confirm')),
+                        h('button', {
+                          type: 'button',
+                          style: S.linkButton,
+                          onClick: () => {
+                            setKeyFor(null)
+                            setKey('')
+                          },
+                        }, t('catalog.cancel')))
+                    : h('button', {
+                        type: 'button',
+                        style: S.chipButton,
+                        disabled: busy === preset.id,
+                        onClick: () => start(preset),
+                      }, busy === preset.id ? t('catalog.adding') : t('catalog.add')),
+                )),
+              error !== null ? h('span', { style: S.error }, error) : null,
+              notice !== null ? h('span', { style: S.catalogNotice }, notice) : null,
+            )
+          : null,
+      )
+    }
+
     function HiddenRoutes({ t }) {
       const state = useHubState()
       const [busy, setBusy] = react.useState(null)
@@ -294,6 +444,17 @@ window.__ModuleLoader__.load({
             locale: NS,
           },
           RouteControls,
+        ),
+      )
+      ctx.slots.inject('settings.models.footer', () =>
+        ctx.slots.register(
+          {
+            name: 'settings.models.footer',
+            id: 'provider-hub-catalog',
+            order: 10,
+            locale: NS,
+          },
+          PresetCatalog,
         ),
       )
       ctx.slots.inject('settings.models.footer', () =>
