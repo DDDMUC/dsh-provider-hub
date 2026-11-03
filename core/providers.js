@@ -1139,7 +1139,7 @@ export const CURATED_PRESETS = [
       { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro", contextWindow: 1000000, maxTokens: 384000, input: ['text'], reasoningEfforts: {"high":"high","max":"max"} },
       { id: "claude-sonnet-5", name: "Claude Sonnet 5", contextWindow: 1000000, maxTokens: 128000, input: ['text', 'image'], reasoningEfforts: {"xhigh":"xhigh","max":"max"} },
       { id: "claude-sonnet-5-5", name: "Claude Sonnet 5.5", contextWindow: 1000000, maxTokens: 128000, input: ['text', 'image'], reasoningEfforts: {"off":null,"low":"low","medium":"medium","high":"high","max":"max"} },
-      { id: "claude-opus-5", name: "Claude Opus 5", contextWindow: 1000000, maxTokens: 128000, input: ['text', 'image'], reasoningEfforts: {"xhigh":"xhigh","max":"max"}, compat: {"supportsTemperature":false} },
+      { id: "claude-opus-5", name: "Claude Opus 5", contextWindow: 1000000, maxTokens: 128000, input: ['text', 'image'], reasoningEfforts: {"xhigh":"xhigh","max":"max"} },
       { id: "gpt-6-luna", name: "GPT-6 Luna", contextWindow: 1050000, maxTokens: 128000, input: ['text', 'image'], reasoningEfforts: {"off":null,"low":"low","medium":"medium","high":"high","xhigh":"xhigh","max":"max"} },
       { id: "gpt-6.1-sol", name: "GPT-6.1 Sol", contextWindow: 1050000, maxTokens: 128000, input: ['text', 'image'], reasoningEfforts: {"off":null,"low":"low","medium":"medium","high":"high","max":"max"} },
       { id: "gemini-3.5-flash", name: "Gemini 3.5 Flash", contextWindow: 1048576, maxTokens: 65536, input: ['text', 'image'] },

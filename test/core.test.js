@@ -4,7 +4,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 import { PRESETS, SUPPORTED_APIS, customEnvName, findPreset } from '../core/providers.js'
-import { baseUrlError, buildProfile, effortsError, isRouteKey, routeOf } from '../core/profile.js'
+import { baseUrlError, buildProfile, effortsError, filterCompat, isRouteKey, OFFERED_COMPAT, offeredCompat, routeOf } from '../core/profile.js'
 import { coverageOf } from '../core/coverage.js'
 
 test('catalog: ids are unique', () => {
@@ -195,4 +195,70 @@ test('catalog: Command Code carries the whole GOAT plan catalog', () => {
   const profile = buildProfile({ presetId: 'commandcode' })
   assert.equal(profile.models.length, preset.models.length)
   assert.equal(profile.apiKeyEnv, 'COMMANDCODE_API_KEY')
+})
+
+// --- compat fences ----------------------------------------------------------
+//
+// The adapter fails a whole route when a *model* carries a compat switch its
+// protocol does not take ("provider apigoto model claude-opus-5 sets compat
+// supportsTemperature, but its api is openai-completions, which does not take
+// it") and silently skips one at the *route* level. `supportsTemperature` is an
+// anthropic-messages switch; an OpenAI-compatible gateway that happens to serve
+// a Claude model must not inherit it.
+
+test('compat: every model switch is one its protocol actually takes', () => {
+  for (const preset of PRESETS) {
+    const offered = offeredCompat(preset.api)
+    for (const model of preset.models) {
+      for (const field of Object.keys(model.compat ?? {})) {
+        assert.ok(
+          offered.includes(field),
+          `${preset.id}/${model.id}: compat "${field}" is not offered by "${preset.api}" (offered: ${offered.join(', ') || 'none'})`,
+        )
+      }
+    }
+  }
+})
+
+test('compat: every route switch is declared by some protocol', () => {
+  // A name no protocol declares fails the adapter's vocabulary check even at
+  // the route level, so a typo there is just as fatal as a model-level one.
+  const declared = new Set(Object.values(OFFERED_COMPAT).flat())
+  for (const preset of PRESETS) {
+    for (const field of Object.keys(preset.compat ?? {})) {
+      assert.ok(declared.has(field), `${preset.id}: compat "${field}" is not a switch any protocol declares`)
+    }
+  }
+})
+
+test('compat: a built profile only carries switches its protocol takes', () => {
+  // `openai-responses` routes (opencode-go) still name completions switches in
+  // the catalog; the write fence drops them so the stored profile does not look
+  // like it configured something the adapter ignores.
+  for (const preset of PRESETS) {
+    const profile = buildProfile({ presetId: preset.id })
+    const offered = offeredCompat(profile.api)
+    for (const field of Object.keys(profile.compat ?? {})) {
+      assert.ok(offered.includes(field), `${preset.id}: route compat "${field}" survived on "${profile.api}"`)
+    }
+    for (const model of profile.models) {
+      for (const field of Object.keys(model.compat ?? {})) {
+        assert.ok(offered.includes(field), `${preset.id}/${model.id}: model compat "${field}" survived on "${profile.api}"`)
+      }
+    }
+  }
+})
+
+test('compat: a stray model switch is dropped, not written', () => {
+  const api = 'openai-completions'
+  assert.deepEqual(filterCompat(api, { supportsTemperature: false }), undefined)
+  assert.deepEqual(filterCompat(api, { supportsTemperature: false, thinkingFormat: 'deepseek' }), { thinkingFormat: 'deepseek' })
+  // The anthropic side keeps what it owns and drops the OpenAI vocabulary.
+  assert.deepEqual(filterCompat('anthropic-messages', { supportsTemperature: false, supportsStore: false }), {
+    supportsTemperature: false,
+  })
+  // Long-cache retention is offered by both, so it never gets dropped.
+  assert.deepEqual(filterCompat('openai-responses', { supportsLongCacheRetention: true }), { supportsLongCacheRetention: true })
+  // `supportsStrictMode` is offered by completions and responses, not anthropic.
+  assert.equal(filterCompat('anthropic-messages', { supportsStrictMode: true }), undefined)
 })

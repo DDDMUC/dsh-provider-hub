@@ -12,6 +12,78 @@ import { OPENAI_COMPAT, SUPPORTED_APIS, customEnvName, findPreset } from './prov
 /** Route keys the official loader and this UI agree on. */
 export const ROUTE_RE = /^[a-z0-9][a-z0-9-]{0,62}$/
 
+/**
+ * The compat switches each wire protocol actually takes, mirroring the
+ * adapter's own `COMPAT_GATES` (`offer` dispositions only).
+ *
+ * This table is not documentation, it is a write fence. The adapter fails the
+ * whole route when a *model* carries a switch its protocol does not take
+ * (`model "claude-opus-5" sets compat "supportsTemperature", but its api is
+ * "openai-completions", which does not take it`), and silently skips such a
+ * switch at the *route* level. `supportsTemperature` is an
+ * anthropic-messages switch: an OpenAI-compatible gateway serving a Claude
+ * model must not inherit it just because the model is a Claude.
+ */
+export const OFFERED_COMPAT = {
+  'openai-completions': [
+    'supportsStore',
+    'supportsDeveloperRole',
+    'supportsReasoningEffort',
+    'supportsUsageInStreaming',
+    'supportsFinishReason',
+    'maxTokensField',
+    'requiresToolResultName',
+    'requiresAssistantAfterToolResult',
+    'requiresThinkingAsText',
+    'requiresReasoningContentOnAssistantMessages',
+    'thinkingFormat',
+    'chatTemplateKwargs',
+    'chatTemplateArgs',
+    'supportsThinkingTokenBudget',
+    'thinkingTokenBudgetField',
+    'vllmPriority',
+    'supportsStrictMode',
+    'cacheControlFormat',
+    'supportsLongCacheRetention',
+  ],
+  'anthropic-messages': [
+    'supportsEagerToolInputStreaming',
+    'supportsLongCacheRetention',
+    'supportsCacheControlOnTools',
+    'supportsTemperature',
+    'forceAdaptiveThinking',
+    'allowEmptySignature',
+    'supportsStrictTools',
+  ],
+  'openai-responses': [
+    'supportsDeveloperRole',
+    'supportsMaxOutputTokens',
+    'supportsStrictMode',
+    'supportsLongCacheRetention',
+  ],
+}
+
+/** The compat fields one protocol takes; empty for a protocol with no compat. */
+export function offeredCompat(api) {
+  return OFFERED_COMPAT[api] ?? []
+}
+
+/**
+ * Drop every switch the protocol does not take.
+ * @param api - the route's wire protocol.
+ * @param compat - switches from a preset, the custom form or a caller.
+ * @returns the switches that survive, or undefined when none does.
+ */
+export function filterCompat(api, compat) {
+  if (compat === undefined || compat === null || typeof compat !== 'object' || Array.isArray(compat)) return undefined
+  // A protocol this table does not describe is left alone: guessing there would
+  // strip switches the adapter may well take.
+  if (OFFERED_COMPAT[api] === undefined) return Object.keys(compat).length === 0 ? undefined : { ...compat }
+  const offered = offeredCompat(api)
+  const kept = Object.entries(compat).filter(([field]) => offered.includes(field))
+  return kept.length === 0 ? undefined : Object.fromEntries(kept)
+}
+
 /** Whether a string is a usable route key. */
 export function isRouteKey(value) {
   return typeof value === 'string' && ROUTE_RE.test(value)
@@ -141,6 +213,19 @@ export function buildProfile(input) {
     const error = effortsError(model.reasoningEfforts)
     if (error) throw new Error(`${model.id}: ${error}`)
   }
+  // A model switch the route's protocol does not take is fatal in the adapter
+  // (it refuses the whole route, not just that model), so the hub never writes
+  // one: the preset is corrected at its source, and this pass makes sure a
+  // stale entry - or a hand edit on a route already adopted - cannot smuggle
+  // one back in.
+  models = models.map((model) => {
+    const compat = filterCompat(api, model.compat)
+    if (compat === undefined) {
+      const { compat: _dropped, ...rest } = model
+      return rest
+    }
+    return { ...model, compat }
+  })
 
   const displayName = preset
     ? preset.name
@@ -159,7 +244,10 @@ export function buildProfile(input) {
   let compat
   if (api === 'openai-completions') compat = { ...OPENAI_COMPAT, ...(presetCompat ?? {}), ...(callerCompat ?? {}) }
   else if (api === 'anthropic-messages') compat = { ...(presetCompat ?? {}), ...(callerCompat ?? {}) }
-  if (compat !== undefined && Object.keys(compat).length === 0) compat = undefined
+  // The adapter skips a route-level switch the protocol does not take instead
+  // of failing, so a stale one would sit in the profile looking applied while
+  // doing nothing. Keep the route honest about what it actually sets.
+  compat = filterCompat(api, compat)
 
   return compact({
     displayName,

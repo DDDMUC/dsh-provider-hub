@@ -14,6 +14,7 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { PRESETS } from '../core/providers.js'
 import { curatedProfile } from '../core/directory.js'
+import { offeredCompat } from '../core/profile.js'
 
 /** Where a DSH checkout keeps the adapter, in the order worth trying. */
 function candidates() {
@@ -43,6 +44,15 @@ let models = 0
 for (const preset of PRESETS) {
   const profile = curatedProfile(preset, {})
   try {
+    // The schema accepts any compat key it knows and the *resolver* is what
+    // refuses a switch the model's protocol does not take, so this half has to
+    // be checked here rather than left to `new Config()`.
+    const offered = new Set(offeredCompat(profile.api))
+    for (const model of profile.models) {
+      for (const field of Object.keys(model.compat ?? {})) {
+        if (!offered.has(field)) throw new Error(`model "${model.id}" sets compat "${field}", which "${profile.api}" does not take`)
+      }
+    }
     const parsed = new Config({ providers: { [preset.id]: profile } })
     // schemastery hands back observable refs, so the accepted value is read
     // through `.get()`; an entry the schema silently dropped counts as a failure.

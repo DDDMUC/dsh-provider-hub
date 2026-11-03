@@ -224,7 +224,8 @@ node tools/patch-chatgpt.mjs --restore
   - 抄不动的：**模态只能 text / image** —— pi-ai 的 `MODALITIES` 就这两个值，models.dev 的 `pdf` / `video` / `audio` 写进 profile 会被 schema 直接拒（实测报错 `expected "text" | "image" but got "pdf"`），生成器会裁掉；输出不是文本的模型（画图/语音/embedding）也一并裁掉
   - 匹配按 **id → baseURL → 名称相等**，故意**不用凭据变量名兜底**：同一家会用同一个 env 覆盖不同套餐端点（`STEPFUN_API_KEY` 同时管 `api.stepfun.com/v1` 与 `/step_plan/v1`），按 env 匹配会把一个套餐的模型嫁接到另一个套餐的预设上
 - 模型清单与逐模型兼容开关可从任意权威目录刷新：`node tools/refresh-catalog.mjs --catalog <catalog.json>`（先 `--dry` 审阅）；路由级只保留全部模型一致的开关，不一致的由模型自己携带 `compat`
-- 校验：`node --test` 跑形状不变量（模态集合、思考档集合、正整数限额、id 唯一、生成文件只做加法）；`node tools/verify-presets.mjs <dsh-llm-pi-ai 路径>` 再拿**装着的真实 pi-ai schema** 逐条过一遍（`schemastery` 的 Ref 要 `.get()` 读值）
+- **兼容开关按协议分家**：`supportsTemperature`、`forceAdaptiveThinking`、`supportsStrictTools` 这些只有 `anthropic-messages` 认；`thinkingFormat`、`maxTokensField`、`requiresReasoningContentOnAssistantMessages` 这些只有 `openai-completions` 认。写错协议时 pi-ai 对**模型级**开关是**致命**的（整条路由都加载不出来，报 `model "x" sets compat "y", but its api is "z", which does not take it`），对**路由级**开关是**静默跳过**。所以 `core/profile.js` 里的 `OFFERED_COMPAT` 是写入闸：不属于该协议的开关在落盘前就被丢掉，同步/手改都不会再带回来
+- 校验：`node --test` 跑形状不变量（模态集合、思考档集合、正整数限额、id 唯一、生成文件只做加法、兼容开关归属协议）；`node tools/verify-presets.mjs <dsh-llm-pi-ai 路径>` 再拿**装着的真实 pi-ai schema** 逐条过一遍（`schemastery` 的 Ref 要 `.get()` 读值）
 - WorkBuddy 端用 `node tools/workbuddy.mjs add-all --prune` 同步：装入全部预设并清掉目录里已不存在的旧条目
 
 ## 注意

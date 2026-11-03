@@ -2,6 +2,17 @@
 
 本文件记录对外可见的变更。更早的历史看 git tag（`v0.4.0`、`v0.4.1` …）。
 
+## [0.4.4] - 2026-11-03
+
+### Fixed
+
+- **APIGOTO 的 `claude-opus-5` 让整条路由加载失败**：这条预设给该模型写了 `compat: { supportsTemperature: false }`，但 APIGOTO 走的是 `openai-completions`，而 `supportsTemperature` 是 `anthropic-messages` 的开关。pi-ai 在解析时直接抛 `PiAiCatalogError`——`provider "apigoto" model "claude-opus-5" sets compat "supportsTemperature", but its api is "openai-completions", which does not take it`——整条路由（不只这个模型）都进不来。Anthropic 官方那两家仍是 `anthropic-messages`，开关照旧保留。
+
+### Added
+
+- **按协议过滤 compat 的写入闸**（`core/profile.js` 的 `OFFERED_COMPAT` / `filterCompat`）：路由级和模型级都只写该协议真正接受的开关。模型级的多余开关在 pi-ai 里是**致命**的（整条路由失败），路由级的多余开关则是**静默跳过**（看着配了其实没生效），两种都不再写出去。以后从 models.dev 同步、手改预设或手改已采纳的路由，都不会再把这类开关带回来。
+- `test/core.test.js` 新增 4 条不变量：每个模型的开关必须属于其协议、每个路由级开关必须是某个协议声明过的名字、`buildProfile` 出来的档案只带合法开关、`filterCompat` 的丢弃行为。`tools/verify-presets.mjs` 也补了同样的检查（`new Config()` 只验 schema，管不到这个语义）。
+
 ## [0.4.3] - 2026-11-02
 
 ### Added
