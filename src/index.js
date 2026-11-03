@@ -188,7 +188,7 @@ function isConflict(error) {
  * One state snapshot: the curated catalog joined with what the user layer
  * currently declares (configured route, stored key, live registration).
  */
-async function stateOf(ctx) {
+async function stateOf(ctx, held) {
   const { settings, credentials, llm } = services(ctx)
   if (!settings) throw new HttpError(503, 'service-missing', 'DSH 设置服务不可用')
   const descriptor = piAiDescriptor(settings)
@@ -199,8 +199,17 @@ async function stateOf(ctx) {
   // Per-app de-duplication: presets the target app already covers natively
   // (its built-in pi-ai catalog) stay in the catalog but are marked so the UI
   // can hide them behind a reveal toggle. Nothing is deleted.
+  //
+  // This plugin's OWN declared routes are excluded first. They are in the
+  // directory too (`registerConfigurableProviders`), so counting them as
+  // "native" marks every preset as covered by itself - `apigoto` -> `apigoto` -
+  // and the client's catalog list drops it (`covered !== true`). That is how a
+  // preset becomes invisible in the very list meant to add it: declared at boot,
+  // self-covered, gone from the add bar, while the official editor cannot fill
+  // in the models a directory entry cannot carry. Same rule as `readDirectory()`.
   const listed = llm?.listConfigurableProviders?.() ?? []
-  const nativeIds = listed.map((entry) => entry.provider)
+  const own = held instanceof Set ? held : new Set()
+  const nativeIds = listed.map((entry) => entry.provider).filter((provider) => !own.has(provider))
   const coverage = coverageOf(PRESETS, nativeIds)
   const coveredBy = new Map(coverage.covered.map((entry) => [entry.id, entry.as]))
 
@@ -731,7 +740,7 @@ export function apply(ctx) {
             return
           }
           try {
-            sendJson(res, 200, { ok: true, ...(await stateOf(ctx)) })
+            sendJson(res, 200, { ok: true, ...(await stateOf(ctx, directory.held)) })
           } catch (error) {
             const status = error instanceof HttpError ? error.status : 500
             const code = error instanceof HttpError ? error.code : 'internal'

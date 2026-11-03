@@ -257,6 +257,38 @@ test('host: a route that is not a preset is never curated', async () => {
   assert.deepEqual(h.calls.mutated, [])
 })
 
+test('host: a preset this plugin declares is not covered by itself', async () => {
+  // 插件把自己的预设注册进 pi-ai 的 configurable-provider 目录，于是
+  // `listConfigurableProviders()` 里就有 `apigoto`。如果把它也算作"宿主原生提供"，
+  // coverage 会得出 `apigoto -> apigoto`，客户端据此把这条预设从"可添加"列表里
+  // 滤掉（`covered !== true`）——预设就这样在自己的入口里消失了，而官方编辑器又
+  // 补不上目录项带不了的模型列表，等于彻底加不进来。
+  const h = harness()
+  apply(h.ctx)
+  await settle()
+
+  const state = await h.get('state')
+  const presets = state.json.presets
+  assert.ok(presets.length > 0, '目录里有预设')
+
+  // 宿主原生提供的路由（openai、deepseek 这些）自己覆盖自己是正常的，跳过；
+  // 其余任何"自己覆盖自己"都是本插件把自己的声明当成了宿主原生提供。
+  const NATIVE_IDS = new Set([...NATIVE, 'deepseek-official'])
+  for (const preset of presets) {
+    if (NATIVE_IDS.has(preset.id)) continue
+    assert.notEqual(preset.coveredBy, preset.id, `${preset.id} 不能覆盖它自己`)
+  }
+
+  const apigoto = presets.find((preset) => preset.id === 'apigoto')
+  assert.ok(apigoto, 'apigoto 在目录里')
+  assert.equal(apigoto.covered, false, 'apigoto 必须留在"可添加"列表里')
+
+  // 真正的跨家覆盖仍然要保留：opencode-zen 由宿主自带的 opencode 提供。
+  const zen = presets.find((preset) => preset.id === 'opencode-zen')
+  assert.equal(zen.covered, true, 'opencode-zen 仍应被宿主原生覆盖')
+  assert.equal(zen.coveredBy, 'opencode')
+})
+
 test('host: hide takes a route out of the picker and show puts it back unchanged', async () => {
   const profile = { apiKeyEnv: 'CLINE_API_KEY', displayName: 'ClinePass', api: 'openai-completions', models: [{ id: 'kimi-k3', name: 'Kimi K3' }] }
   const h = harness({ 'cline-pass': profile })
