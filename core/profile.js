@@ -84,6 +84,53 @@ export function filterCompat(api, compat) {
   return kept.length === 0 ? undefined : Object.fromEntries(kept)
 }
 
+/**
+ * Repair one already-stored profile: drop compat switches its protocol does not
+ * take, at both levels, and change nothing else.
+ *
+ * This is the heal path, not the write path. A profile written by an older hub
+ * (or edited by hand) can carry a model-level switch the adapter refuses — and
+ * because that refusal is fatal for the whole route, the route never appears in
+ * the picker and no later curation can reach it. Nothing here reorders models,
+ * trims ids or touches credentials: a route someone shaped stays shaped.
+ * @param profile - one `providers.<route>` value read from settings.
+ * @returns the repaired profile, or the same reference when nothing is wrong.
+ */
+export function repairProfileCompat(profile) {
+  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) return profile
+  const api = profile.api
+  if (typeof api !== 'string' || OFFERED_COMPAT[api] === undefined) return profile
+  let changed = false
+  const next = { ...profile }
+  if (profile.compat !== undefined) {
+    const compat = filterCompat(api, profile.compat)
+    if (compat === undefined) {
+      delete next.compat
+      changed = true
+    } else if (Object.keys(compat).length !== Object.keys(profile.compat).length) {
+      next.compat = compat
+      changed = true
+    }
+  }
+  if (Array.isArray(profile.models)) {
+    next.models = profile.models.map((model) => {
+      if (model === null || typeof model !== 'object' || Array.isArray(model) || model.compat === undefined) return model
+      const compat = filterCompat(api, model.compat)
+      if (compat === undefined) {
+        const { compat: _dropped, ...rest } = model
+        changed = true
+        return rest
+      }
+      if (Object.keys(compat).length !== Object.keys(model.compat).length) {
+        changed = true
+        return { ...model, compat }
+      }
+      return model
+    })
+  }
+  return changed ? next : profile
+}
+
 /** Whether a string is a usable route key. */
 export function isRouteKey(value) {
   return typeof value === 'string' && ROUTE_RE.test(value)

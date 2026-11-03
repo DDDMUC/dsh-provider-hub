@@ -34,7 +34,7 @@ import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 
 import { PRESETS, customEnvName } from '../core/providers.js'
-import { buildProfile, routeOf } from '../core/profile.js'
+import { buildProfile, repairProfileCompat, routeOf } from '../core/profile.js'
 import { coverageOf } from '../core/coverage.js'
 import { curatedProfile, planSync, presetFingerprint, sameProfile } from '../core/directory.js'
 
@@ -590,6 +590,30 @@ async function syncDirectory(ctx, state) {
   // predates it and carries models is a profile someone shaped by hand, not a
   // draft to fill in, so curation leaves it alone.
   if (state.bootConfigured === undefined) state.bootConfigured = new Set(configured)
+
+  // Heal a route that already carries a compat switch its protocol does not
+  // take. pi-ai refuses the whole route over a model-level one, so such a route
+  // is invisible in the picker and no curation ever reaches it - it can only be
+  // repaired in place. Only switches move; ids, order, limits and credentials
+  // are left exactly as they are.
+  for (const [route, stored] of Object.entries(profiles)) {
+    const repaired = repairProfileCompat(stored)
+    if (repaired === stored) continue
+    const current = piAiDescriptor(settings)
+    try {
+      await settings.mutate(PI_AI_NS, [{ op: 'set', path: ['providers', route], value: repaired }], current.revision)
+      appendTrace(`repaired compat on "${route}"`)
+      if (ctx.logger && typeof ctx.logger.info === 'function') {
+        ctx.logger.info(`dsh-provider-hub: dropped compat switches "${route}" does not take`)
+      }
+    } catch (error) {
+      const reason = String((error && error.message) || error)
+      appendTrace(`repair failed on "${route}": ${reason}`)
+      if (ctx.logger && typeof ctx.logger.warn === 'function') {
+        ctx.logger.warn(`dsh-provider-hub: could not repair "${route}": ${reason}`)
+      }
+    }
+  }
 
   const readDirectory = () => {
     const listed = llm.listConfigurableProviders?.() ?? []

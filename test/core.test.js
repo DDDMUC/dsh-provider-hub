@@ -4,7 +4,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 import { PRESETS, SUPPORTED_APIS, customEnvName, findPreset } from '../core/providers.js'
-import { baseUrlError, buildProfile, effortsError, filterCompat, isRouteKey, OFFERED_COMPAT, offeredCompat, routeOf } from '../core/profile.js'
+import { baseUrlError, buildProfile, effortsError, filterCompat, isRouteKey, OFFERED_COMPAT, offeredCompat, repairProfileCompat, routeOf } from '../core/profile.js'
 import { coverageOf } from '../core/coverage.js'
 
 test('catalog: ids are unique', () => {
@@ -261,4 +261,47 @@ test('compat: a stray model switch is dropped, not written', () => {
   assert.deepEqual(filterCompat('openai-responses', { supportsLongCacheRetention: true }), { supportsLongCacheRetention: true })
   // `supportsStrictMode` is offered by completions and responses, not anthropic.
   assert.equal(filterCompat('anthropic-messages', { supportsStrictMode: true }), undefined)
+})
+
+test('compat: repair strips a stored switch and leaves everything else alone', () => {
+  const stored = {
+    displayName: 'APIGOTO 聚合路由',
+    api: 'openai-completions',
+    baseURL: 'https://api.apigoto.com/v1',
+    apiKeyEnv: 'APIGOTO_API_KEY',
+    compat: { supportsStore: false },
+    models: [
+      { id: 'deepseek-flash', name: 'DeepSeek V4.1 Flash', contextWindow: 1000000, maxTokens: 384000 },
+      {
+        id: 'claude-opus-5',
+        name: 'Claude Opus 5',
+        contextWindow: 1000000,
+        maxTokens: 128000,
+        compat: { supportsTemperature: false },
+      },
+      { id: 'gpt-6-luna', name: 'GPT-6 Luna', compat: { thinkingFormat: 'openai' } },
+    ],
+  }
+  const repaired = repairProfileCompat(stored)
+  assert.notEqual(repaired, stored)
+  // The offending switch is gone; the model itself stays, in place, unchanged.
+  assert.equal(repaired.models.length, 3)
+  assert.equal(repaired.models[1].id, 'claude-opus-5')
+  assert.equal(repaired.models[1].compat, undefined)
+  assert.equal('compat' in repaired.models[1], false)
+  // A switch the protocol does take survives untouched.
+  assert.deepEqual(repaired.models[2].compat, { thinkingFormat: 'openai' })
+  assert.deepEqual(repaired.compat, { supportsStore: false })
+  assert.equal(repaired.apiKeyEnv, 'APIGOTO_API_KEY')
+  // Repairing twice is a no-op, so a sync loop cannot rewrite on every pass.
+  assert.equal(repairProfileCompat(repaired), repaired)
+})
+
+test('compat: repair leaves a clean or unknown-protocol profile by reference', () => {
+  const clean = { api: 'anthropic-messages', models: [{ id: 'x', compat: { supportsTemperature: false } }] }
+  assert.equal(repairProfileCompat(clean), clean)
+  // A protocol this table does not describe is not guessed at.
+  const exotic = { api: 'mistral-conversations', compat: { supportsMidConvoSystemMessages: true } }
+  assert.equal(repairProfileCompat(exotic), exotic)
+  assert.equal(repairProfileCompat(null), null)
 })

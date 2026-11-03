@@ -11,7 +11,8 @@
 ### Added
 
 - **按协议过滤 compat 的写入闸**（`core/profile.js` 的 `OFFERED_COMPAT` / `filterCompat`）：路由级和模型级都只写该协议真正接受的开关。模型级的多余开关在 pi-ai 里是**致命**的（整条路由失败），路由级的多余开关则是**静默跳过**（看着配了其实没生效），两种都不再写出去。以后从 models.dev 同步、手改预设或手改已采纳的路由，都不会再把这类开关带回来。
-- `test/core.test.js` 新增 4 条不变量：每个模型的开关必须属于其协议、每个路由级开关必须是某个协议声明过的名字、`buildProfile` 出来的档案只带合法开关、`filterCompat` 的丢弃行为。`tools/verify-presets.mjs` 也补了同样的检查（`new Config()` 只验 schema，管不到这个语义）。
+- **已存档案自愈**（`repairProfileCompat`，插件每次目录同步时跑一遍）：盘上已经写坏的档案会被就地修掉——只删该协议不认的开关，模型 id、顺序、限额、凭据一个都不动。这一步是必需的：模型级开关写错时整条路由都解析不了，路由在模型选择器里根本不出现，`enrich` 永远够不到它，只能就地修。已经踩过坑的档案重启一次就好，不用删了重加。
+- `test/core.test.js` 新增 6 条不变量：每个模型的开关必须属于其协议、每个路由级开关必须是某个协议声明过的名字、`buildProfile` 出来的档案只带合法开关、`filterCompat` 的丢弃行为、`repairProfileCompat` 只删开关且二次调用是空操作。`tools/verify-presets.mjs` 也补了同样的检查（`new Config()` 只验 schema，管不到这个语义）。
 
 ## [0.4.3] - 2026-11-02
 
