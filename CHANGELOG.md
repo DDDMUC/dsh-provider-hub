@@ -2,6 +2,17 @@
 
 本文件记录对外可见的变更。更早的历史看 git tag（`v0.4.0`、`v0.4.1` …）。
 
+## [0.4.5] - 2026-11-18
+
+### Added
+
+- **OpenDesign Cloud 预设**（`opendesign`，`https://amr-link.open-design.ai/v1`，`openai-completions`）：14 个模型按网关 `/v1/models` 的实际 ID 录入——`deepseek-v4.1-flash` / `-eco`、`deepseek-v4-flash` / `-vision-exp`、`deepseek-v4-pro`、`claude-haiku-5.5`、`glm-5.3-flash` / `-flashx`、`gpt-6-luna`、`hy4-preview`、`kimi-k2.7-code`、`mimo-v2.6-flash` / `-pro`、`minimax-m3.1-flash`。上下文窗口、输出上限、图片输入按模型分别填写；其中 12 个模型带 `low / medium / high / max` 四档思考强度（`kimi-k2.7-code` 与 `claude-haiku-5.5` 不吃这个参数，故意不给档位）。Key 不写进预设：`apiKeyEnv` 为 `OPENDESIGN_API_KEY`，在 Models 页粘贴即可。
+- 预设总数与模型数同步为 **59 家 / 2922 个模型**（README 与 npm 描述）。
+
+### Fixed
+
+- **Windows 下测试会写进真实的 `~/.provider-hub`**：`os.homedir()` 在 Windows 读的是 `USERPROFILE` 而不是 `HOME`，`test/host.test.js` 只设了 `HOME`，于是隐藏列表、目录指纹和 `sync-trace.log` 的测试写到了开发者自己的目录里（还会凭空多出一条 `nous-portal` 隐藏记录）。现在两个变量都指向临时目录，测试不再碰真实状态。
+
 ## [0.4.4] - 2026-11-03
 
 ### Fixed

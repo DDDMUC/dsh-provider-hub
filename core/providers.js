@@ -1151,6 +1151,31 @@ export const CURATED_PRESETS = [
       { id: "qwen3.8-max", name: "Qwen3.8 Max", contextWindow: 1000000, maxTokens: 131072, input: ['text', 'image'], reasoningEfforts: {"low":"low","medium":"medium","xhigh":"xhigh"} },
     ],
   },
+  {
+    id: 'opendesign',
+    name: 'OpenDesign Cloud',
+    docs: 'https://open-design.ai/zh/help/cloud-api',
+    keyUrl: 'https://open-design.ai/cloud/dashboard',
+    env: 'OPENDESIGN_API_KEY',
+    baseURL: 'https://amr-link.open-design.ai/v1',
+    api: 'openai-completions',
+    models: [
+      { id: "deepseek-v4.1-flash", name: "DeepSeek V4.1 Flash", contextWindow: 1048000, maxTokens: 128000, input: ['text', 'image'], reasoningEfforts: {"low":"low","medium":"medium","high":"high","max":"max"} },
+      { id: "deepseek-v4.1-flash-eco", name: "DeepSeek V4.1 Flash Eco", contextWindow: 1048000, maxTokens: 128000, input: ['text'], reasoningEfforts: {"low":"low","medium":"medium","high":"high","max":"max"} },
+      { id: "deepseek-v4-flash", name: "DeepSeek V4 Flash", contextWindow: 1048000, maxTokens: 32000, input: ['text'], reasoningEfforts: {"low":"low","medium":"medium","high":"high","max":"max"} },
+      { id: "deepseek-v4-flash-vision-exp", name: "DeepSeek V4 Flash Vision (Exp)", contextWindow: 1048000, maxTokens: 32000, input: ['text', 'image'], reasoningEfforts: {"low":"low","medium":"medium","high":"high","max":"max"} },
+      { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro", contextWindow: 1048000, maxTokens: 128000, input: ['text'], reasoningEfforts: {"low":"low","medium":"medium","high":"high","max":"max"} },
+      { id: "claude-haiku-5.5", name: "Claude Haiku 5.5", contextWindow: 1000000, maxTokens: 128000, input: ['text', 'image'] },
+      { id: "glm-5.3-flash", name: "GLM-5.3 Flash", contextWindow: 1048000, maxTokens: 32000, input: ['text', 'image'], reasoningEfforts: {"low":"low","medium":"medium","high":"high","max":"max"} },
+      { id: "glm-5.3-flashx", name: "GLM-5.3 FlashX", contextWindow: 1000000, maxTokens: 32000, input: ['text', 'image'], reasoningEfforts: {"low":"low","medium":"medium","high":"high","max":"max"} },
+      { id: "gpt-6-luna", name: "GPT-6 Luna", contextWindow: 1050000, maxTokens: 128000, input: ['text', 'image'], reasoningEfforts: {"low":"low","medium":"medium","high":"high","max":"max"} },
+      { id: "hy4-preview", name: "HY4 Preview", contextWindow: 1048000, maxTokens: 32000, input: ['text'], reasoningEfforts: {"low":"low","medium":"medium","high":"high","max":"max"} },
+      { id: "kimi-k2.7-code", name: "Kimi K2.7 Code", contextWindow: 262000, maxTokens: 32000, input: ['text', 'image'] },
+      { id: "mimo-v2.6-flash", name: "MiMo v2.6 Flash", contextWindow: 1048000, maxTokens: 32000, input: ['text', 'image'], reasoningEfforts: {"low":"low","medium":"medium","high":"high","max":"max"} },
+      { id: "mimo-v2.6-pro", name: "MiMo v2.6 Pro", contextWindow: 1048000, maxTokens: 32000, input: ['text', 'image'], reasoningEfforts: {"low":"low","medium":"medium","high":"high","max":"max"} },
+      { id: "minimax-m3.1-flash", name: "MiniMax M3.1 Flash", contextWindow: 1000000, maxTokens: 32000, input: ['text', 'image'], reasoningEfforts: {"low":"low","medium":"medium","high":"high","max":"max"} },
+    ],
+  },
 ]
 // --- end preset catalog ---
 

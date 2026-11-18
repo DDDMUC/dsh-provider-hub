@@ -15,7 +15,12 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 // The journals live under the home directory; keep the suite out of the real one.
-process.env.HOME = mkdtempSync(join(tmpdir(), 'provider-hub-test-'))
+// os.homedir() reads USERPROFILE on Windows and HOME elsewhere, so both have to
+// point at the scratch directory or the suite writes into the developer's own
+// ~/.provider-hub.
+const testHome = mkdtempSync(join(tmpdir(), 'provider-hub-test-'))
+process.env.HOME = testHome
+process.env.USERPROFILE = testHome
 
 const { apply } = await import('../src/index.js')
 const { PRESETS, findPreset } = await import('../core/providers.js')

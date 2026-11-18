@@ -4,7 +4,7 @@
 
 为 DSH 扩大可用的服务商：**在官方 Models 页选一个服务商，粘贴 API Key，保存**——预设与 DSH 自带的 42 家并列在同一个下拉里，插件把官方 `llm-pi-ai` 路由与凭据一次性写好，立即生效、无需重启、无需手改 `settings.yaml`。
 
-内置 **58 家服务商预设 / 2908 个模型**（其中 2494 个来自 models.dev 补充目录，见「目录维护」）（OpenAI 兼容 / Anthropic Messages / OpenAI Responses 三种协议），覆盖国际与国内的普通 API 与 **订阅渠道**（百炼 Token Plan、智谱 Coding、Kimi Coding、MiniMax Coding Plan、小米 MiMo、OpenCode Zen、**火山方舟 Agent Plan** 等）；DSH 已内置的服务商不会重复出现在下拉里。
+内置 **59 家服务商预设 / 2922 个模型**（其中 2494 个来自 models.dev 补充目录，见「目录维护」）（OpenAI 兼容 / Anthropic Messages / OpenAI Responses 三种协议），覆盖国际与国内的普通 API 与 **订阅渠道**（百炼 Token Plan、智谱 Coding、Kimi Coding、MiniMax Coding Plan、小米 MiMo、OpenCode Zen、**火山方舟 Agent Plan** 等）；DSH 已内置的服务商不会重复出现在下拉里。
 
 ## 安装
 
